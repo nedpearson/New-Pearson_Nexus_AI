@@ -1,10 +1,18 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Camera, Upload, FileText, Tag, Calendar, MapPin } from 'lucide-react';
 
 export function Capture() {
   const [selectedCase, setSelectedCase] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
+  const [capturedAt, setCapturedAt] = useState('');
+  const [location, setLocation] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<string>('');
+
+  const takePhotoInputRef = useRef<HTMLInputElement>(null);
+  const uploadFileInputRef = useRef<HTMLInputElement>(null);
 
   const legalTags = [
     'Violation',
@@ -25,6 +33,48 @@ export function Capture() {
     );
   };
 
+  const handlePickFile = (file: File | null) => {
+    setSelectedFile(file);
+    setStatus(file ? `Selected: ${file.name}` : '');
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFile) {
+      setStatus('Please take a photo or select a file first.');
+      return;
+    }
+
+    setSaving(true);
+    setStatus('Uploading...');
+
+    try {
+      const fd = new FormData();
+      fd.append('file', selectedFile);
+      fd.append('caseId', selectedCase);
+      fd.append('tags', tags.join(','));
+      fd.append('notes', notes);
+      if (capturedAt) fd.append('capturedAt', capturedAt);
+      if (location) fd.append('location', location);
+
+      const res = await fetch('/api/uploads', {
+        method: 'POST',
+        credentials: 'include',
+        body: fd
+      });
+
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.error || 'UPLOAD_FAILED');
+
+      setStatus('Uploaded successfully.');
+      setSelectedFile(null);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'UPLOAD_FAILED';
+      setStatus(`Upload failed: ${msg}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-6">
@@ -36,12 +86,20 @@ export function Capture() {
         <h2 className="text-lg font-semibold text-white mb-4">Upload Evidence</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <button className="p-6 border-2 border-dashed border-gray-700/50 rounded-xl hover:border-cyan-500/50 hover:bg-cyan-500/10 smooth-transition">
+          <button
+            type="button"
+            onClick={() => takePhotoInputRef.current?.click()}
+            className="p-6 border-2 border-dashed border-gray-700/50 rounded-xl hover:border-cyan-500/50 hover:bg-cyan-500/10 smooth-transition"
+          >
             <Camera className="w-8 h-8 text-cyan-400 mx-auto mb-2" />
             <p className="text-sm font-medium text-gray-300">Take Photo</p>
           </button>
 
-          <button className="p-6 border-2 border-dashed border-gray-700/50 rounded-xl hover:border-cyan-500/50 hover:bg-cyan-500/10 smooth-transition">
+          <button
+            type="button"
+            onClick={() => uploadFileInputRef.current?.click()}
+            className="p-6 border-2 border-dashed border-gray-700/50 rounded-xl hover:border-cyan-500/50 hover:bg-cyan-500/10 smooth-transition"
+          >
             <Upload className="w-8 h-8 text-cyan-400 mx-auto mb-2" />
             <p className="text-sm font-medium text-gray-300">Upload File</p>
           </button>
@@ -53,6 +111,27 @@ export function Capture() {
         </div>
 
         <div className="space-y-4">
+          <input
+            ref={takePhotoInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => handlePickFile(e.target.files?.[0] ?? null)}
+          />
+          <input
+            ref={uploadFileInputRef}
+            type="file"
+            className="hidden"
+            onChange={(e) => handlePickFile(e.target.files?.[0] ?? null)}
+          />
+
+          {status && (
+            <div className="p-3 bg-gray-900/40 border border-gray-700/50 rounded-xl text-sm text-gray-200">
+              {status}
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">Attach to Legal Case</label>
             <select
@@ -112,6 +191,8 @@ export function Capture() {
               </label>
               <input
                 type="datetime-local"
+              value={capturedAt}
+              onChange={(e) => setCapturedAt(e.target.value)}
                 className="w-full px-4 py-2 bg-gray-900/50 border border-gray-700/50 rounded-xl text-white focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 smooth-transition"
               />
             </div>
@@ -125,6 +206,8 @@ export function Capture() {
               </label>
               <input
                 type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
                 className="w-full px-4 py-2 bg-gray-900/50 border border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 smooth-transition"
                 placeholder="Where did this occur?"
               />
@@ -132,7 +215,12 @@ export function Capture() {
           </div>
 
           <div className="pt-4">
-            <button className="w-full px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-xl hover:from-cyan-500 hover:to-blue-500 smooth-transition font-medium shadow-lg shadow-cyan-500/30">
+            <button
+              type="button"
+              disabled={saving}
+              onClick={handleUpload}
+              className="w-full px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-xl hover:from-cyan-500 hover:to-blue-500 smooth-transition font-medium shadow-lg shadow-cyan-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               Save Evidence
             </button>
           </div>

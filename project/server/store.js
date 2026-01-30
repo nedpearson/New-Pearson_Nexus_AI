@@ -9,8 +9,12 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-function generateId() {
+function generateIdInternal() {
   return crypto.randomUUID();
+}
+
+export function generateId() {
+  return generateIdInternal();
 }
 
 export async function loadData() {
@@ -18,7 +22,7 @@ export async function loadData() {
     const raw = await fs.readFile(DATA_PATH, 'utf8');
     return JSON.parse(raw);
   } catch {
-    return { users: {}, orgs: {}, refreshTokens: {}, passwordResets: {} };
+    return { users: {}, orgs: {}, refreshTokens: {}, passwordResets: {}, uploads: [] };
   }
 }
 
@@ -31,8 +35,8 @@ export async function ensureSeeded(data) {
   const users = Object.values(data.users || {});
   if (users.length > 0) return data;
 
-  const orgId = generateId();
-  const userId = generateId();
+  const orgId = generateIdInternal();
+  const userId = generateIdInternal();
 
   const org = {
     id: orgId,
@@ -76,8 +80,8 @@ export async function createUserWithOrg(data, { email, password, name }) {
     return { ok: false, error: 'ACCOUNT_EXISTS' };
   }
 
-  const orgId = generateId();
-  const userId = generateId();
+  const orgId = generateIdInternal();
+  const userId = generateIdInternal();
 
   const org = {
     id: orgId,

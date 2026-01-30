@@ -1,6 +1,10 @@
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import multer from 'multer';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import fs from 'node:fs/promises';
 
 import {
   loadData,
@@ -12,7 +16,8 @@ import {
   verifyPassword,
   publicUser,
   sha256Base64url,
-  randomTokenBase64url
+  randomTokenBase64url,
+  generateId
 } from './store.js';
 
 import {
@@ -35,13 +40,27 @@ const app = express();
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
 
-app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-  ],
-  credentials: true
-}));
+// Dev-friendly CORS: reflect requesting origin (works for phone on LAN) + allow credentials for cookies
+app.use(cors({ origin: true, credentials: true }));
+
+const UPLOAD_DIR = path.resolve(process.cwd(), 'server', 'uploads');
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: async (_req, _file, cb) => {
+      try {
+        await fs.mkdir(UPLOAD_DIR, { recursive: true });
+        cb(null, UPLOAD_DIR);
+      } catch (e) {
+        cb(e, UPLOAD_DIR);
+      }
+    },
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname || '');
+      cb(null, `${crypto.randomUUID()}${ext}`);
+    }
+  }),
+  limits: { fileSize: 25 * 1024 * 1024 } // 25MB
+});
 
 let data = await ensureSeeded(await loadData());
 
@@ -267,7 +286,8 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     await saveData(data);
 
     // Dev-only: log the reset link (no email integration in this repo yet)
-    console.log(`[auth] Password reset link for ${normalizedEmail}: http://localhost:5173/reset-password?token=${token}`);
+    const origin = req.headers?.origin || 'http://localhost:5174';
+    console.log(`[auth] Password reset link for ${normalizedEmail}: ${origin}/reset-password?token=${token}`);
   }
 
   return res.status(200).json({ ok: true });
@@ -326,6 +346,41 @@ app.patch('/api/auth/users/:userId', requireAccess, async (req, res) => {
 });
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
+
+// File upload (photos/docs) -> stores metadata in server/data.json and file on disk.
+app.post('/api/uploads', upload.single('file'), async (req, res) => {
+  const file = req.file;
+  if (!file) return res.status(400).json({ error: 'NO_FILE' });
+
+  const { caseId, tags, notes, capturedAt, location } = req.body || {};
+
+  const record = {
+    id: generateId(),
+    original_name: file.originalname,
+    stored_name: file.filename,
+    mime_type: file.mimetype,
+    size: file.size,
+    sha256: sha256Base64url(await fs.readFile(file.path)),
+    path: file.path,
+    case_id: caseId || null,
+    tags: typeof tags === 'string' ? tags.split(',').map(s => s.trim()).filter(Boolean) : [],
+    notes: typeof notes === 'string' ? notes : '',
+    captured_at: typeof capturedAt === 'string' ? capturedAt : null,
+    location: typeof location === 'string' ? location : null,
+    created_at: new Date().toISOString()
+  };
+
+  data.uploads ||= [];
+  data.uploads.push(record);
+  await saveData(data);
+
+  return res.json({ upload: record });
+});
+
+app.get('/api/uploads', async (_req, res) => {
+  data.uploads ||= [];
+  return res.json({ uploads: data.uploads });
+});
 
 app.listen(PORT, () => {
   console.log(`✅ Auth server listening on http://localhost:${PORT}`);

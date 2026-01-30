@@ -24,3 +24,6 @@ dist-ssr
 
 # Auth server runtime state (do not commit)
 server/data.json
+
+# Uploaded files (runtime)
+server/uploads/
