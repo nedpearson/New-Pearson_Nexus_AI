@@ -69,7 +69,8 @@ const upload = multer({
 });
 
 // Serve uploaded files (local testing convenience)
-app.use('/uploads', express.static(UPLOAD_DIR));
+// IMPORTANT: do NOT mount at "/uploads" because "/uploads" is a React route.
+app.use('/uploads/files', express.static(UPLOAD_DIR));
 
 let data = await ensureSeeded(await loadData());
 
@@ -502,8 +503,9 @@ app.use(
     pathFilter: (pathName) => {
       return !(
         pathName.startsWith('/api') ||
-        pathName.startsWith('/uploads') ||
-        pathName.startsWith('/launch')
+        pathName.startsWith('/uploads/files') ||
+        pathName.startsWith('/launch') ||
+        pathName.startsWith('/qr')
       );
     }
   })

@@ -91,7 +91,7 @@ export function Uploads() {
                   </div>
 
                   <a
-                    href={`/uploads/${encodeURIComponent(u.stored_name)}`}
+                    href={`/uploads/files/${encodeURIComponent(u.stored_name)}`}
                     className="px-3 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-white hover:from-cyan-500 hover:to-blue-500 smooth-transition flex items-center gap-2 shrink-0"
                     target="_blank"
                     rel="noreferrer"
