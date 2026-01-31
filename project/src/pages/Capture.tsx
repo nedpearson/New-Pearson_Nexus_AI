@@ -65,7 +65,7 @@ export function Capture() {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error || 'UPLOAD_FAILED');
 
-      setStatus('Uploaded successfully.');
+      setStatus('Uploaded successfully. View at /uploads');
       setSelectedFile(null);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'UPLOAD_FAILED';

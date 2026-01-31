@@ -28,6 +28,7 @@ import { TaxAttorney } from './pages/TaxAttorney';
 import { FinancialAdvisor } from './pages/FinancialAdvisor';
 import { EntityBuilder } from './pages/EntityBuilder';
 import { PolicyUpdates } from './pages/PolicyUpdates';
+import { Uploads } from './pages/Uploads';
 import { FeatureFlagsPanel } from './components/FeatureFlagsPanel';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -98,6 +99,7 @@ function App() {
                 <Route path="/" element={<DesktopDashboard onNavigate={handleNavigate} />} />
                 <Route path="/dashboard" element={<DesktopDashboard onNavigate={handleNavigate} />} />
                 <Route path="/capture" element={<Capture />} />
+                <Route path="/uploads" element={<Uploads />} />
                 <Route
                   path="/documents"
                   element={

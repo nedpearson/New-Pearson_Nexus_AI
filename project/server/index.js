@@ -5,6 +5,9 @@ import multer from 'multer';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
+import os from 'node:os';
+import { createProxyMiddleware } from 'http-proxy-middleware';
+import QRCode from 'qrcode';
 
 import {
   loadData,
@@ -31,6 +34,9 @@ import {
 } from './tokens.js';
 
 const PORT = Number(process.env.AUTH_PORT || 3001);
+// Use IPv4 loopback to avoid localhost->IPv6 (::1) issues on Windows
+const UI_DEV_TARGET = process.env.PNX_UI_PROXY_TARGET || 'http://127.0.0.1:5174';
+const HOSTNAME = os.hostname();
 
 const COOKIE_ACCESS = 'pnx_access';
 const COOKIE_REFRESH = 'pnx_refresh';
@@ -61,6 +67,9 @@ const upload = multer({
   }),
   limits: { fileSize: 25 * 1024 * 1024 } // 25MB
 });
+
+// Serve uploaded files (local testing convenience)
+app.use('/uploads', express.static(UPLOAD_DIR));
 
 let data = await ensureSeeded(await loadData());
 
@@ -347,6 +356,103 @@ app.patch('/api/auth/users/:userId', requireAccess, async (req, res) => {
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
+// Phone-friendly landing page: save this URL on your home screen.
+app.get('/launch', (req, res) => {
+  const hostHeader = String(req.headers.host || '');
+  const hostOnly = hostHeader.includes(':') ? hostHeader.split(':')[0] : hostHeader;
+  const preferredHost = hostOnly || HOSTNAME;
+
+  const baseUrl = `http://${preferredHost}:${PORT}`;
+  const html = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pearson Nexus AI — Launch</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#0f172a;color:#fff;margin:0;padding:24px}
+    .card{max-width:720px;margin:0 auto;background:rgba(31,41,55,.45);border:1px solid rgba(75,85,99,.5);border-radius:16px;padding:20px}
+    a{color:#67e8f9}
+    .btn{display:inline-block;margin-top:12px;padding:12px 14px;border-radius:12px;background:linear-gradient(90deg,#0891b2,#2563eb);color:#fff;text-decoration:none;font-weight:600}
+    .muted{color:#9ca3af;font-size:14px}
+    code{background:rgba(0,0,0,.25);padding:2px 6px;border-radius:8px}
+  </style>
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+</head>
+<body>
+  <div class="card">
+    <h1 style="margin:0 0 8px 0;">Pearson Nexus AI</h1>
+    <div class="muted">
+      Save this page to your phone Home Screen. It uses your PC name (<code>${HOSTNAME}</code>) so the link keeps working on the same Wi‑Fi even if your PC’s IP changes.
+    </div>
+
+    <div style="margin-top:14px">
+      <div><strong>Phone bookmark link:</strong> <a href="${baseUrl}/launch">${baseUrl}/launch</a></div>
+      <div style="margin-top:8px"><a href="${baseUrl}/qr">Open QR code to scan</a></div>
+      <div class="muted" style="margin-top:6px">If this hostname doesn’t resolve on your phone, use the Network URL printed in the PC terminal instead.</div>
+    </div>
+
+    <a class="btn" href="/">Open App</a>
+    <div style="margin-top:10px" class="muted">
+      Useful pages: <a href="/capture">Capture</a> • <a href="/uploads">Uploads</a>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  return res.send(html);
+});
+
+// QR code page for easy phone setup
+app.get('/qr', async (req, res) => {
+  const hostHeader = String(req.headers.host || '');
+  const hostOnly = hostHeader.includes(':') ? hostHeader.split(':')[0] : hostHeader;
+  const preferredHost = hostOnly || HOSTNAME;
+
+  const url = `http://${preferredHost}:${PORT}/launch`;
+
+  let dataUrl = '';
+  try {
+    dataUrl = await QRCode.toDataURL(url, { margin: 1, width: 320 });
+  } catch (e) {
+    return res.status(500).send('Failed to generate QR code');
+  }
+
+  const html = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pearson Nexus AI — QR</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#0f172a;color:#fff;margin:0;padding:24px}
+    .card{max-width:520px;margin:0 auto;background:rgba(31,41,55,.45);border:1px solid rgba(75,85,99,.5);border-radius:16px;padding:20px;text-align:center}
+    .muted{color:#9ca3af;font-size:14px}
+    a{color:#67e8f9}
+    img{border-radius:12px;background:#fff;padding:10px}
+    code{background:rgba(0,0,0,.25);padding:2px 6px;border-radius:8px}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1 style="margin:0 0 8px 0;">Scan to open</h1>
+    <div class="muted">Save to Home Screen after it opens.</div>
+    <div style="margin-top:14px">
+      <img src="${dataUrl}" alt="QR code for ${url}" />
+    </div>
+    <div class="muted" style="margin-top:14px">
+      Link: <a href="${url}"><code>${url}</code></a>
+    </div>
+    <div style="margin-top:12px"><a href="/launch">Back</a></div>
+  </div>
+</body>
+</html>`;
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  return res.send(html);
+});
+
 // File upload (photos/docs) -> stores metadata in server/data.json and file on disk.
 app.post('/api/uploads', upload.single('file'), async (req, res) => {
   const file = req.file;
@@ -382,7 +488,30 @@ app.get('/api/uploads', async (_req, res) => {
   return res.json({ uploads: data.uploads });
 });
 
+// Single-port mode for phones: proxy the UI through this server (dev).
+// This makes your saved link stable: http://<PC-NAME>:3001/...
+app.use(
+  createProxyMiddleware({
+    target: UI_DEV_TARGET,
+    changeOrigin: true,
+    ws: true,
+    logLevel: 'silent',
+    /**
+     * Do NOT proxy API, upload files, or launch page.
+     */
+    pathFilter: (pathName) => {
+      return !(
+        pathName.startsWith('/api') ||
+        pathName.startsWith('/uploads') ||
+        pathName.startsWith('/launch')
+      );
+    }
+  })
+);
+
 app.listen(PORT, () => {
   console.log(`✅ Auth server listening on http://localhost:${PORT}`);
+  console.log(`📱 Phone link (hostname): http://${HOSTNAME}:${PORT}/launch`);
+  console.log(`🖥️  Local link: http://localhost:${PORT}/launch`);
 });
 
