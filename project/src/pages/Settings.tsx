@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import {
   User, Lock, Bell, Palette, Database, LogOut, ChevronDown, ChevronUp,
   Mail, Phone, Globe, Check, Link, Shield, Eye, Clock,
-  Download, Trash2, Save, Smartphone, Monitor, Cloud
+  Download, Trash2, Save, Smartphone, Monitor, Cloud,
+  DollarSign, Scale, Plus, X, CreditCard, Building, TrendingUp, FileText, Calendar, Briefcase
 } from 'lucide-react';
 import { useSettings } from '../contexts/SettingsContext';
 import { useAuth } from '../contexts/AuthContext';
 import { ProfileWizard } from '../components/settings/ProfileWizard';
 import { getBackendConfig } from '../lib/storage';
+import { SyncIndicator } from '../components/SyncIndicator';
 
 export function Settings() {
   const { settings, updateSettings, resetSettings } = useSettings();
@@ -15,6 +17,8 @@ export function Settings() {
   const [expandedSections, setExpandedSections] = useState<string[]>([
     'account',
     'profile',
+    'financial',
+    'legal',
   ]);
   const [showWizard, setShowWizard] = useState(!settings.setupCompleted);
   const [saved, setSaved] = useState(false);
@@ -371,6 +375,575 @@ export function Settings() {
                 </div>
               </>
             )}
+          </div>
+        </SettingsSection>
+
+        <SettingsSection
+          icon={<DollarSign className="w-5 h-5" />}
+          title="Financial Matters"
+          description="Bank accounts, investments, debts, and financial information"
+          expanded={expandedSections.includes('financial')}
+          onToggle={() => toggleSection('financial')}
+        >
+          <div className="space-y-6">
+            {/* Bank Accounts */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                  <Building className="w-4 h-4" />
+                  Bank Accounts
+                </h4>
+                <button
+                  onClick={() => {
+                    const newItem = {
+                      id: Date.now().toString(),
+                      name: '',
+                      accountNumber: '',
+                      type: 'Checking'
+                    };
+                    handleUpdateSettings({
+                      financial: {
+                        ...settings.financial,
+                        bankAccounts: [...settings.financial.bankAccounts, newItem]
+                      }
+                    });
+                  }}
+                  className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add
+                </button>
+              </div>
+              <div className="space-y-2">
+                {settings.financial.bankAccounts.map((account, index) => (
+                  <div key={account.id} className="flex gap-2 p-3 bg-gray-50 rounded-lg">
+                    <input
+                      type="text"
+                      value={account.name}
+                      onChange={(e) => {
+                        const updated = [...settings.financial.bankAccounts];
+                        updated[index] = { ...updated[index], name: e.target.value };
+                        handleUpdateSettings({
+                          financial: { ...settings.financial, bankAccounts: updated }
+                        });
+                      }}
+                      placeholder="Bank name"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                    <input
+                      type="text"
+                      value={account.accountNumber}
+                      onChange={(e) => {
+                        const updated = [...settings.financial.bankAccounts];
+                        updated[index] = { ...updated[index], accountNumber: e.target.value };
+                        handleUpdateSettings({
+                          financial: { ...settings.financial, bankAccounts: updated }
+                        });
+                      }}
+                      placeholder="Account #"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                    <select
+                      value={account.type}
+                      onChange={(e) => {
+                        const updated = [...settings.financial.bankAccounts];
+                        updated[index] = { ...updated[index], type: e.target.value };
+                        handleUpdateSettings({
+                          financial: { ...settings.financial, bankAccounts: updated }
+                        });
+                      }}
+                      className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    >
+                      <option>Checking</option>
+                      <option>Savings</option>
+                      <option>Money Market</option>
+                    </select>
+                    <button
+                      onClick={() => {
+                        const updated = settings.financial.bankAccounts.filter((_, i) => i !== index);
+                        handleUpdateSettings({
+                          financial: { ...settings.financial, bankAccounts: updated }
+                        });
+                      }}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                {settings.financial.bankAccounts.length === 0 && (
+                  <p className="text-sm text-gray-500 text-center py-4">No bank accounts added yet</p>
+                )}
+              </div>
+            </div>
+
+            {/* Credit Cards */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                  <CreditCard className="w-4 h-4" />
+                  Credit Cards
+                </h4>
+                <button
+                  onClick={() => {
+                    const newItem = {
+                      id: Date.now().toString(),
+                      name: '',
+                      last4: '',
+                      expiry: ''
+                    };
+                    handleUpdateSettings({
+                      financial: {
+                        ...settings.financial,
+                        creditCards: [...settings.financial.creditCards, newItem]
+                      }
+                    });
+                  }}
+                  className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add
+                </button>
+              </div>
+              <div className="space-y-2">
+                {settings.financial.creditCards.map((card, index) => (
+                  <div key={card.id} className="flex gap-2 p-3 bg-gray-50 rounded-lg">
+                    <input
+                      type="text"
+                      value={card.name}
+                      onChange={(e) => {
+                        const updated = [...settings.financial.creditCards];
+                        updated[index] = { ...updated[index], name: e.target.value };
+                        handleUpdateSettings({
+                          financial: { ...settings.financial, creditCards: updated }
+                        });
+                      }}
+                      placeholder="Card name"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                    <input
+                      type="text"
+                      value={card.last4}
+                      onChange={(e) => {
+                        const updated = [...settings.financial.creditCards];
+                        updated[index] = { ...updated[index], last4: e.target.value };
+                        handleUpdateSettings({
+                          financial: { ...settings.financial, creditCards: updated }
+                        });
+                      }}
+                      placeholder="Last 4 digits"
+                      maxLength={4}
+                      className="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                    <input
+                      type="text"
+                      value={card.expiry}
+                      onChange={(e) => {
+                        const updated = [...settings.financial.creditCards];
+                        updated[index] = { ...updated[index], expiry: e.target.value };
+                        handleUpdateSettings({
+                          financial: { ...settings.financial, creditCards: updated }
+                        });
+                      }}
+                      placeholder="MM/YY"
+                      className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                    <button
+                      onClick={() => {
+                        const updated = settings.financial.creditCards.filter((_, i) => i !== index);
+                        handleUpdateSettings({
+                          financial: { ...settings.financial, creditCards: updated }
+                        });
+                      }}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                {settings.financial.creditCards.length === 0 && (
+                  <p className="text-sm text-gray-500 text-center py-4">No credit cards added yet</p>
+                )}
+              </div>
+            </div>
+
+            {/* Custom Financial Items */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4" />
+                  Other Financial Info
+                </h4>
+                <button
+                  onClick={() => {
+                    const newItem = {
+                      id: Date.now().toString(),
+                      label: '',
+                      value: ''
+                    };
+                    handleUpdateSettings({
+                      financial: {
+                        ...settings.financial,
+                        customItems: [...settings.financial.customItems, newItem]
+                      }
+                    });
+                  }}
+                  className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add
+                </button>
+              </div>
+              <div className="space-y-2">
+                {settings.financial.customItems.map((item, index) => (
+                  <div key={item.id} className="flex gap-2 p-3 bg-gray-50 rounded-lg">
+                    <input
+                      type="text"
+                      value={item.label}
+                      onChange={(e) => {
+                        const updated = [...settings.financial.customItems];
+                        updated[index] = { ...updated[index], label: e.target.value };
+                        handleUpdateSettings({
+                          financial: { ...settings.financial, customItems: updated }
+                        });
+                      }}
+                      placeholder="e.g., Investment Account, 401k, etc."
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                    <input
+                      type="text"
+                      value={item.value}
+                      onChange={(e) => {
+                        const updated = [...settings.financial.customItems];
+                        updated[index] = { ...updated[index], value: e.target.value };
+                        handleUpdateSettings({
+                          financial: { ...settings.financial, customItems: updated }
+                        });
+                      }}
+                      placeholder="Details"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                    <button
+                      onClick={() => {
+                        const updated = settings.financial.customItems.filter((_, i) => i !== index);
+                        handleUpdateSettings({
+                          financial: { ...settings.financial, customItems: updated }
+                        });
+                      }}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                {settings.financial.customItems.length === 0 && (
+                  <p className="text-sm text-gray-500 text-center py-4">
+                    Add investments, insurance policies, or other financial matters
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </SettingsSection>
+
+        <SettingsSection
+          icon={<Scale className="w-5 h-5" />}
+          title="Legal Matters"
+          description="Legal cases, attorneys, court dates, and legal documents"
+          expanded={expandedSections.includes('legal')}
+          onToggle={() => toggleSection('legal')}
+        >
+          <div className="space-y-6">
+            {/* Legal Cases */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                  <Briefcase className="w-4 h-4" />
+                  Legal Cases
+                </h4>
+                <button
+                  onClick={() => {
+                    const newItem = {
+                      id: Date.now().toString(),
+                      caseNumber: '',
+                      type: '',
+                      status: 'Active',
+                      description: ''
+                    };
+                    handleUpdateSettings({
+                      legal: {
+                        ...settings.legal,
+                        cases: [...settings.legal.cases, newItem]
+                      }
+                    });
+                  }}
+                  className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add
+                </button>
+              </div>
+              <div className="space-y-2">
+                {settings.legal.cases.map((legalCase, index) => (
+                  <div key={legalCase.id} className="p-3 bg-gray-50 rounded-lg space-y-2">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={legalCase.caseNumber}
+                        onChange={(e) => {
+                          const updated = [...settings.legal.cases];
+                          updated[index] = { ...updated[index], caseNumber: e.target.value };
+                          handleUpdateSettings({
+                            legal: { ...settings.legal, cases: updated }
+                          });
+                        }}
+                        placeholder="Case #"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      />
+                      <input
+                        type="text"
+                        value={legalCase.type}
+                        onChange={(e) => {
+                          const updated = [...settings.legal.cases];
+                          updated[index] = { ...updated[index], type: e.target.value };
+                          handleUpdateSettings({
+                            legal: { ...settings.legal, cases: updated }
+                          });
+                        }}
+                        placeholder="Type (e.g., Custody, Divorce)"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      />
+                      <select
+                        value={legalCase.status}
+                        onChange={(e) => {
+                          const updated = [...settings.legal.cases];
+                          updated[index] = { ...updated[index], status: e.target.value };
+                          handleUpdateSettings({
+                            legal: { ...settings.legal, cases: updated }
+                          });
+                        }}
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      >
+                        <option>Active</option>
+                        <option>Pending</option>
+                        <option>Closed</option>
+                      </select>
+                      <button
+                        onClick={() => {
+                          const updated = settings.legal.cases.filter((_, i) => i !== index);
+                          handleUpdateSettings({
+                            legal: { ...settings.legal, cases: updated }
+                          });
+                        }}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <textarea
+                      value={legalCase.description}
+                      onChange={(e) => {
+                        const updated = [...settings.legal.cases];
+                        updated[index] = { ...updated[index], description: e.target.value };
+                        handleUpdateSettings({
+                          legal: { ...settings.legal, cases: updated }
+                        });
+                      }}
+                      placeholder="Case description"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      rows={2}
+                    />
+                  </div>
+                ))}
+                {settings.legal.cases.length === 0 && (
+                  <p className="text-sm text-gray-500 text-center py-4">No legal cases added yet</p>
+                )}
+              </div>
+            </div>
+
+            {/* Attorneys */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  Attorneys
+                </h4>
+                <button
+                  onClick={() => {
+                    const newItem = {
+                      id: Date.now().toString(),
+                      name: '',
+                      phone: '',
+                      email: '',
+                      specialty: ''
+                    };
+                    handleUpdateSettings({
+                      legal: {
+                        ...settings.legal,
+                        attorneys: [...settings.legal.attorneys, newItem]
+                      }
+                    });
+                  }}
+                  className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add
+                </button>
+              </div>
+              <div className="space-y-2">
+                {settings.legal.attorneys.map((attorney, index) => (
+                  <div key={attorney.id} className="p-3 bg-gray-50 rounded-lg space-y-2">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={attorney.name}
+                        onChange={(e) => {
+                          const updated = [...settings.legal.attorneys];
+                          updated[index] = { ...updated[index], name: e.target.value };
+                          handleUpdateSettings({
+                            legal: { ...settings.legal, attorneys: updated }
+                          });
+                        }}
+                        placeholder="Attorney name"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      />
+                      <input
+                        type="text"
+                        value={attorney.specialty}
+                        onChange={(e) => {
+                          const updated = [...settings.legal.attorneys];
+                          updated[index] = { ...updated[index], specialty: e.target.value };
+                          handleUpdateSettings({
+                            legal: { ...settings.legal, attorneys: updated }
+                          });
+                        }}
+                        placeholder="Specialty"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      />
+                      <button
+                        onClick={() => {
+                          const updated = settings.legal.attorneys.filter((_, i) => i !== index);
+                          handleUpdateSettings({
+                            legal: { ...settings.legal, attorneys: updated }
+                          });
+                        }}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="tel"
+                        value={attorney.phone}
+                        onChange={(e) => {
+                          const updated = [...settings.legal.attorneys];
+                          updated[index] = { ...updated[index], phone: e.target.value };
+                          handleUpdateSettings({
+                            legal: { ...settings.legal, attorneys: updated }
+                          });
+                        }}
+                        placeholder="Phone"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      />
+                      <input
+                        type="email"
+                        value={attorney.email}
+                        onChange={(e) => {
+                          const updated = [...settings.legal.attorneys];
+                          updated[index] = { ...updated[index], email: e.target.value };
+                          handleUpdateSettings({
+                            legal: { ...settings.legal, attorneys: updated }
+                          });
+                        }}
+                        placeholder="Email"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      />
+                    </div>
+                  </div>
+                ))}
+                {settings.legal.attorneys.length === 0 && (
+                  <p className="text-sm text-gray-500 text-center py-4">No attorneys added yet</p>
+                )}
+              </div>
+            </div>
+
+            {/* Custom Legal Items */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  Other Legal Info
+                </h4>
+                <button
+                  onClick={() => {
+                    const newItem = {
+                      id: Date.now().toString(),
+                      label: '',
+                      value: ''
+                    };
+                    handleUpdateSettings({
+                      legal: {
+                        ...settings.legal,
+                        customItems: [...settings.legal.customItems, newItem]
+                      }
+                    });
+                  }}
+                  className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add
+                </button>
+              </div>
+              <div className="space-y-2">
+                {settings.legal.customItems.map((item, index) => (
+                  <div key={item.id} className="flex gap-2 p-3 bg-gray-50 rounded-lg">
+                    <input
+                      type="text"
+                      value={item.label}
+                      onChange={(e) => {
+                        const updated = [...settings.legal.customItems];
+                        updated[index] = { ...updated[index], label: e.target.value };
+                        handleUpdateSettings({
+                          legal: { ...settings.legal, customItems: updated }
+                        });
+                      }}
+                      placeholder="e.g., Court Date, Document, etc."
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                    <input
+                      type="text"
+                      value={item.value}
+                      onChange={(e) => {
+                        const updated = [...settings.legal.customItems];
+                        updated[index] = { ...updated[index], value: e.target.value };
+                        handleUpdateSettings({
+                          legal: { ...settings.legal, customItems: updated }
+                        });
+                      }}
+                      placeholder="Details"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                    <button
+                      onClick={() => {
+                        const updated = settings.legal.customItems.filter((_, i) => i !== index);
+                        handleUpdateSettings({
+                          legal: { ...settings.legal, customItems: updated }
+                        });
+                      }}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                {settings.legal.customItems.length === 0 && (
+                  <p className="text-sm text-gray-500 text-center py-4">
+                    Add court dates, documents, or other legal matters
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
         </SettingsSection>
 
@@ -791,6 +1364,15 @@ export function Settings() {
                 storage: { ...settings.storage, autoTaggingEnabled: checked }
               })}
             />
+
+            {/* Data Sync Section */}
+            <div className="pt-4 border-t border-gray-200">
+              <h4 className="text-sm font-medium text-gray-900 mb-3">Data Synchronization</h4>
+              <SyncIndicator />
+              <p className="mt-2 text-xs text-gray-600">
+                Auto-sync every 12 hours • Background sync when online • Manual sync available
+              </p>
+            </div>
 
             <div className="pt-4 border-t border-gray-200 space-y-2">
               <button className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors w-full">

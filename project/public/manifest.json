@@ -1,12 +1,13 @@
 {
   "name": "Pearson Nexus AI",
   "short_name": "Nexus AI",
-  "description": "Capture Anything, Organize Everything",
-  "start_url": "/",
+  "description": "Capture Anything, Organize Everything - Works Offline",
+  "start_url": "/mobile",
   "display": "standalone",
-  "background_color": "#111827",
+  "background_color": "#0f172a",
   "theme_color": "#0891b2",
   "orientation": "portrait-primary",
+  "scope": "/",
   "icons": [
     {
       "src": "/brand/pearson_nexus_ai_logo.png",
@@ -22,19 +23,27 @@
     }
   ],
   "categories": ["productivity", "business", "utilities"],
+  "prefer_related_applications": false,
   "shortcuts": [
     {
-      "name": "Capture Evidence",
+      "name": "Quick Capture",
       "short_name": "Capture",
-      "description": "Quickly capture new evidence",
-      "url": "/#capture",
+      "description": "Quickly capture photo or voice note",
+      "url": "/mobile",
       "icons": [{ "src": "/brand/pearson_nexus_ai_logo.png", "sizes": "192x192" }]
     },
     {
       "name": "Dashboard",
       "short_name": "Dashboard",
       "description": "View your dashboard",
-      "url": "/#dashboard",
+      "url": "/",
+      "icons": [{ "src": "/brand/pearson_nexus_ai_logo.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Settings",
+      "short_name": "Settings",
+      "description": "App settings and sync",
+      "url": "/settings",
       "icons": [{ "src": "/brand/pearson_nexus_ai_logo.png", "sizes": "192x192" }]
     }
   ]

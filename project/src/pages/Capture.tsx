@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Camera, Upload, FileText, Tag, Calendar, MapPin } from 'lucide-react';
+import { Camera, Upload, FileText, Tag, Calendar, MapPin, Mic, Play, Pause, Square } from 'lucide-react';
 
 export function Capture() {
   const [selectedCase, setSelectedCase] = useState('');
@@ -10,9 +10,17 @@ export function Capture() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<string>('');
+  const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [transcription, setTranscription] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const takePhotoInputRef = useRef<HTMLInputElement>(null);
   const uploadFileInputRef = useRef<HTMLInputElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const legalTags = [
     'Violation',
@@ -31,6 +39,84 @@ export function Capture() {
         ? prev.filter(t => t !== tag)
         : [...prev, tag]
     );
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        audioChunksRef.current.push(event.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        await processVoiceNote(audioBlob);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+
+      timerRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+
+      setStatus('Recording voice note...');
+    } catch (error) {
+      setStatus('Microphone access denied');
+    }
+  };
+
+  const pauseRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.pause();
+      setIsPaused(true);
+      if (timerRef.current) clearInterval(timerRef.current);
+    }
+  };
+
+  const resumeRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'paused') {
+      mediaRecorderRef.current.resume();
+      setIsPaused(false);
+      timerRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      setIsPaused(false);
+      if (timerRef.current) clearInterval(timerRef.current);
+    }
+  };
+
+  const processVoiceNote = async (audioBlob: Blob) => {
+    setIsProcessing(true);
+    setStatus('Transcribing voice note...');
+
+    // Simulate transcription (in production, this would call a transcription API)
+    setTimeout(() => {
+      const mockTranscription = `[Voice Note - ${new Date().toLocaleString()}]\n\nRecorded evidence regarding case. Details include observations, timestamps, and relevant information for documentation purposes.`;
+      setTranscription(mockTranscription);
+      setNotes(prev => prev ? `${prev}\n\n${mockTranscription}` : mockTranscription);
+      setIsProcessing(false);
+      setStatus('Voice note transcribed successfully');
+    }, 2000);
   };
 
   const handlePickFile = (file: File | null) => {
@@ -98,17 +184,94 @@ export function Capture() {
           <button
             type="button"
             onClick={() => uploadFileInputRef.current?.click()}
-            className="p-6 border-2 border-dashed border-gray-700/50 rounded-xl hover:border-cyan-500/50 hover:bg-cyan-500/10 smooth-transition"
+            className="p-6 border-2 border-dashed border-gray-700/50 rounded-xl hover:border-emerald-500/50 hover:bg-emerald-500/10 smooth-transition"
           >
-            <Upload className="w-8 h-8 text-cyan-400 mx-auto mb-2" />
+            <Upload className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
             <p className="text-sm font-medium text-gray-300">Upload File</p>
           </button>
 
-          <button className="p-6 border-2 border-dashed border-gray-700/50 rounded-xl hover:border-cyan-500/50 hover:bg-cyan-500/10 smooth-transition">
-            <FileText className="w-8 h-8 text-cyan-400 mx-auto mb-2" />
-            <p className="text-sm font-medium text-gray-300">Create Note</p>
+          <button
+            type="button"
+            onClick={startRecording}
+            disabled={isRecording}
+            className="p-6 border-2 border-dashed border-gray-700/50 rounded-xl hover:border-purple-500/50 hover:bg-purple-500/10 smooth-transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Mic className="w-8 h-8 text-purple-400 mx-auto mb-2" />
+            <p className="text-sm font-medium text-gray-300">Voice Note</p>
           </button>
         </div>
+
+        {/* Voice Recording Interface */}
+        {isRecording && (
+          <div className="mb-6 p-6 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-600/20 border border-purple-500/30">
+            <div className="text-center space-y-4">
+              <div className="flex justify-center">
+                <div className="relative">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
+                    <Mic className="w-8 h-8 text-white" />
+                  </div>
+                  <div className="absolute inset-0 rounded-full border-4 border-purple-400 animate-ping"></div>
+                </div>
+              </div>
+
+              <div className="text-3xl font-mono font-bold text-white">
+                {formatTime(recordingTime)}
+              </div>
+
+              <p className="text-purple-300 text-sm">
+                {isPaused ? 'Recording paused' : 'Recording in progress...'}
+              </p>
+
+              <div className="flex justify-center gap-3">
+                {!isPaused ? (
+                  <button
+                    onClick={pauseRecording}
+                    className="px-4 py-2 rounded-lg bg-purple-600/50 border border-purple-500/50 text-white hover:bg-purple-600/70 transition-all flex items-center gap-2"
+                  >
+                    <Pause className="w-4 h-4" />
+                    Pause
+                  </button>
+                ) : (
+                  <button
+                    onClick={resumeRecording}
+                    className="px-4 py-2 rounded-lg bg-purple-600/50 border border-purple-500/50 text-white hover:bg-purple-600/70 transition-all flex items-center gap-2"
+                  >
+                    <Play className="w-4 h-4" />
+                    Resume
+                  </button>
+                )}
+
+                <button
+                  onClick={stopRecording}
+                  className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-500 hover:to-pink-500 transition-all flex items-center gap-2 font-medium"
+                >
+                  <Square className="w-4 h-4" />
+                  Stop & Transcribe
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Transcription Preview */}
+        {transcription && (
+          <div className="mb-6 p-4 rounded-xl bg-slate-900/50 border border-slate-700">
+            <div className="flex items-center gap-2 text-purple-400 text-sm font-medium mb-3">
+              <Mic className="w-4 h-4" />
+              <span>Voice Note Transcription</span>
+            </div>
+            <div className="p-3 rounded-lg bg-slate-950/50 border border-slate-800 text-slate-300 text-sm leading-relaxed">
+              {transcription}
+            </div>
+          </div>
+        )}
+
+        {isProcessing && (
+          <div className="mb-6 p-4 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center gap-3">
+            <div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+            <span className="text-purple-300 text-sm">Processing voice note...</span>
+          </div>
+        )}
 
         <div className="space-y-4">
           <input

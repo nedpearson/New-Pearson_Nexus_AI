@@ -12,6 +12,7 @@ import { DataProvider } from './contexts/DataContext';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { installInjectedScriptBlocker } from './utils/blockInjectedScripts';
+import { getSyncManager } from './lib/syncManager';
 
 installInjectedScriptBlocker();
 
@@ -94,10 +95,22 @@ if (import.meta.env.DEV) {
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {
-      // Silently fail - service worker registration is optional
-    });
+    navigator.serviceWorker.register('/sw.js')
+      .then((registration) => {
+        console.log('✅ Service Worker registered:', registration.scope);
+        
+        // Initialize sync manager after service worker is ready
+        getSyncManager();
+        console.log('✅ Sync Manager initialized');
+      })
+      .catch((error) => {
+        console.error('❌ Service Worker registration failed:', error);
+      });
   });
+} else {
+  // Initialize sync manager even without service worker
+  getSyncManager();
+  console.log('✅ Sync Manager initialized (no service worker)');
 }
 
 createRoot(document.getElementById('root')!).render(

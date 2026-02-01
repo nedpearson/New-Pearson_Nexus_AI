@@ -6,6 +6,7 @@ import { Layout } from './components/layout/Layout';
 import { Login } from './pages/Login';
 import { DesktopDashboard } from './routes/DesktopDashboard';
 import MobileDashboard from './pages/MobileDashboard';
+import MobileApp from './pages/MobileApp';
 import { Capture } from './pages/Capture';
 import { Documents } from './pages/Documents';
 import { Legal } from './pages/Legal';
@@ -30,6 +31,7 @@ import { EntityBuilder } from './pages/EntityBuilder';
 import { PolicyUpdates } from './pages/PolicyUpdates';
 import { Uploads } from './pages/Uploads';
 import { FeatureFlagsPanel } from './components/FeatureFlagsPanel';
+import { MobileRedirect } from './components/MobileRedirect';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 function App() {
@@ -88,9 +90,11 @@ function App() {
 
   return (
     <>
+      <MobileRedirect />
       <Routes>
-        <Route path="/mobile" element={<MobileDashboard />} />
-        <Route path="/m" element={<MobileDashboard />} />
+        <Route path="/mobile" element={<MobileApp />} />
+        <Route path="/m" element={<MobileApp />} />
+        <Route path="/mobile-dashboard" element={<MobileDashboard />} />
         <Route
           path="/*"
           element={

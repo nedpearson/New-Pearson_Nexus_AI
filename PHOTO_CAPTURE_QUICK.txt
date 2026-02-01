@@ -1,0 +1,82 @@
+═══════════════════════════════════════════════════════════════
+  MULTIPLE PHOTO CAPTURE - QUICK REFERENCE
+═══════════════════════════════════════════════════════════════
+
+📸 CAPTURE WORKFLOW:
+
+  1. Tap "Take Photo" or "Upload File"
+     → Select/capture first photo
+
+  2. Tap "Add More" to capture additional photos
+     → Repeat as many times as needed
+
+  3. Add Notes (REQUIRED):
+     ✓ Type text notes, OR
+     ✓ Record voice notes, OR
+     ✓ Both!
+
+  4. Review photo grid
+     → Tap X on any photo to remove
+
+  5. Tap "Save X Photos"
+     → All saved together offline
+
+  6. When ready: Tap "Sync Now"
+     → All photos + notes upload as one item
+
+═══════════════════════════════════════════════════════════════
+  KEY FEATURES
+═══════════════════════════════════════════════════════════════
+
+  ✅ Multiple photos at once
+  ✅ Add more photos anytime
+  ✅ Remove individual photos
+  ✅ Text OR voice notes required
+  ✅ Photo grid with thumbnails
+  ✅ Character counter for notes
+  ✅ Save button disabled without notes
+  ✅ All photos sync together
+
+═══════════════════════════════════════════════════════════════
+  VALIDATION
+═══════════════════════════════════════════════════════════════
+
+  ❌ CANNOT SAVE:
+     • Photos without notes
+     • Empty submission
+
+  ✅ CAN SAVE:
+     • Photos + text notes
+     • Photos + voice notes
+     • Photos + text + voice
+     • Voice notes alone
+
+═══════════════════════════════════════════════════════════════
+  EXAMPLE USE CASES
+═══════════════════════════════════════════════════════════════
+
+  📱 Car Accident:
+     • Photo 1: Front damage
+     • Photo 2: Side damage
+     • Photo 3: License plate
+     • Notes: "Hit-and-run, Main St, 2:30pm, driver fled"
+
+  📁 Documents:
+     • Select 5 PDFs at once
+     • Voice note: Describe what they are
+     • Save all together
+
+  🏠 Property Inspection:
+     • Take 10+ photos room by room
+     • Add text notes with room names
+     • Save entire inspection as one item
+
+═══════════════════════════════════════════════════════════════
+  ACCESS
+═══════════════════════════════════════════════════════════════
+
+  Mobile: http://192.168.0.28:3001/mobile
+
+  STATUS: ✅ All systems operational
+
+═══════════════════════════════════════════════════════════════

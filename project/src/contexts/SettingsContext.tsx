@@ -32,6 +32,20 @@ interface SettingsState {
     personal: PersonalProfile;
     business: BusinessProfile;
   };
+  financial: {
+    bankAccounts: Array<{ id: string; name: string; accountNumber: string; type: string }>;
+    creditCards: Array<{ id: string; name: string; last4: string; expiry: string }>;
+    investments: Array<{ id: string; name: string; type: string; value: string }>;
+    debts: Array<{ id: string; name: string; amount: string; dueDate: string }>;
+    customItems: Array<{ id: string; label: string; value: string }>;
+  };
+  legal: {
+    cases: Array<{ id: string; caseNumber: string; type: string; status: string; description: string }>;
+    attorneys: Array<{ id: string; name: string; phone: string; email: string; specialty: string }>;
+    courtDates: Array<{ id: string; date: string; court: string; purpose: string }>;
+    documents: Array<{ id: string; name: string; type: string; date: string }>;
+    customItems: Array<{ id: string; label: string; value: string }>;
+  };
   security: {
     passkeyEnabled: boolean;
     allowBiometric: boolean;
@@ -101,6 +115,20 @@ const defaultSettings: SettingsState = {
       businessAddress: '',
       billingEmail: '',
     },
+  },
+  financial: {
+    bankAccounts: [],
+    creditCards: [],
+    investments: [],
+    debts: [],
+    customItems: [],
+  },
+  legal: {
+    cases: [],
+    attorneys: [],
+    courtDates: [],
+    documents: [],
+    customItems: [],
   },
   security: {
     passkeyEnabled: false,

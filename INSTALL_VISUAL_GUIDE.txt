@@ -1,0 +1,285 @@
+# 📱 VISUAL INSTALLATION GUIDE
+
+## iPhone Safari - Add to Home Screen
+
+```
+┌─────────────────────────────────────────┐
+│  Safari Browser                         │
+│  http://192.168.0.28:3001/mobile        │
+├─────────────────────────────────────────┤
+│                                         │
+│  [Your Mobile App Content Here]        │
+│                                         │
+│  ┌───────────────────────────────────┐ │
+│  │ 📱 Install on Your iPhone         │ │
+│  │ Add to home screen for offline    │ │
+│  │ [Show Me How]  [Later]            │ │
+│  └───────────────────────────────────┘ │
+│                                         │
+├─────────────────────────────────────────┤
+│    [<]  [>]  [📤]  [📖]  [⋮]           │ ← Tap Share
+└─────────────────────────────────────────┘
+```
+
+**Tap the Share button (📤)...**
+
+```
+┌─────────────────────────────────────────┐
+│  Share Options                          │
+├─────────────────────────────────────────┤
+│  [📱] [✉️] [💬] [📋]                    │
+│  AirDrop  Message  Copy  More...       │
+├─────────────────────────────────────────┤
+│                                         │
+│  📄 Add to Reading List                │
+│  🔖 Add Bookmark                        │
+│  ➕ Add to Home Screen  ← TAP THIS      │
+│  📧 Mail                                │
+│  💬 Messages                            │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+**Tap "Add to Home Screen"...**
+
+```
+┌─────────────────────────────────────────┐
+│  Add to Home Screen                     │
+├─────────────────────────────────────────┤
+│                                         │
+│       ┌───────────────┐                │
+│       │               │                │
+│       │  [App Logo]   │                │
+│       │               │                │
+│       └───────────────┘                │
+│                                         │
+│  📱 Pearson Nexus AI                   │
+│  _________________________________     │
+│  Name can be edited                    │
+│                                         │
+│  http://192.168.0.28:3001/mobile       │
+│                                         │
+│           [Cancel]  [Add] ← TAP        │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+**After tapping "Add"...**
+
+```
+┌─────────────────────────────────────────┐
+│         iPhone Home Screen              │
+├─────────────────────────────────────────┤
+│                                         │
+│  [📱]  [📧]  [📷]  [🎵]                 │
+│  Phone  Mail  Camera  Music            │
+│                                         │
+│  [🌐]  [💬]  [📝]  [📊]                 │
+│  Safari  Messages  Notes  Stocks       │
+│                                         │
+│  [⚙️]  [📱]  [📂]  [🎮]                 │
+│  Settings  NEXUS  Files  Games         │
+│             ⬆️                          │
+│        YOUR NEW APP!                   │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+---
+
+## Opening The Installed App
+
+**Tap the app icon...**
+
+```
+┌─────────────────────────────────────────┐
+│  [Full Screen - No Browser Bars]       │
+├─────────────────────────────────────────┤
+│                                         │
+│  ████████████████████                  │
+│  █ PEARSON NEXUS AI █  ← Splash Screen │
+│  ████████████████████                  │
+│                                         │
+│       Loading...                        │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+**Then opens directly to...**
+
+```
+┌─────────────────────────────────────────┐
+│  Pearson Nexus AI    user@email.com    │
+│  Quick Capture       ● Offline • 3     │
+├─────────────────────────────────────────┤
+│                                         │
+│  ┌───────────────────────────────────┐ │
+│  │  📷 Take Photo                    │ │
+│  │  Capture evidence instantly    →  │ │
+│  └───────────────────────────────────┘ │
+│                                         │
+│  ┌───────────────────────────────────┐ │
+│  │  🎤 Voice Note         [Ready ✓]  │ │
+│  │  Tap to start instantly        →  │ │
+│  └───────────────────────────────────┘ │
+│                                         │
+│  ┌───────────────────────────────────┐ │
+│  │  📁 Upload File                   │ │
+│  │  Documents, PDFs, images       →  │ │
+│  └───────────────────────────────────┘ │
+│                                         │
+│  Quick Access                           │
+│  ┌───────────────────────────────────┐ │
+│  │  ☁️ Sync Now (3)                  │ │
+│  │  Upload offline data           →  │ │
+│  └───────────────────────────────────┘ │
+│                                         │
+├─────────────────────────────────────────┤
+│  [📸]  [📂]  [⚙️]  [🏠]                 │
+│  Capture Files Settings Desktop         │
+└─────────────────────────────────────────┘
+```
+
+---
+
+## Offline Mode Visual
+
+**Away from home, no WiFi:**
+
+```
+┌─────────────────────────────────────────┐
+│ ┌─────────────────────────────────────┐ │
+│ │  📴 Offline Mode                    │ │
+│ │  3 items waiting to sync            │ │
+│ └─────────────────────────────────────┘ │
+├─────────────────────────────────────────┤
+│                                         │
+│  [Your app works normally]             │
+│                                         │
+│  • Take photos ✅                       │
+│  • Add notes ✅                         │
+│  • View files ✅                        │
+│  • Everything saved locally ✅          │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+**Back online:**
+
+```
+┌─────────────────────────────────────────┐
+│ ┌─────────────────────────────────────┐ │
+│ │  📶 Ready to Sync                   │ │
+│ │  5 items waiting to sync            │ │
+│ └─────────────────────────────────────┘ │
+├─────────────────────────────────────────┤
+│                                         │
+│  ┌───────────────────────────────────┐ │
+│  │  ☁️ Sync Now (5)                  │ │ ← TAP
+│  │  Upload offline data to server →  │ │
+│  └───────────────────────────────────┘ │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+**After sync:**
+
+```
+┌─────────────────────────────────────────┐
+│ ┌─────────────────────────────────────┐ │
+│ │  ✅ Sync Complete!                  │ │
+│ │  Synced 5 items successfully        │ │
+│ └─────────────────────────────────────┘ │
+├─────────────────────────────────────────┤
+│                                         │
+│  Sync button gone (nothing to sync)   │
+│                                         │
+│  Ready to capture more!                │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+---
+
+## Week-Long Use Example
+
+```
+SUNDAY (At Home):
+  📶 On WiFi
+  → Install app
+  → Test it works
+  
+MONDAY - FRIDAY (Away):
+  📴 No WiFi
+  → Open app anywhere
+  → Take 15 photos
+  → Add voice notes
+  → Status: "Offline • 15 pending"
+  
+FRIDAY NIGHT (Back Home):
+  📶 On WiFi
+  → Open app
+  → Status: "Online • 15 pending"
+  → Tap "Sync Now (15)"
+  → ✅ All week's data uploaded!
+```
+
+---
+
+## Side-by-Side Comparison
+
+```
+BROWSER (Before Install)     │  INSTALLED APP (After)
+────────────────────────────┼──────────────────────────
+Need to type URL            │  Tap icon
+Must be on home WiFi        │  Works anywhere
+Won't work offline          │  100% offline capable
+Tab can be closed by accident│ Independent app
+Loads from server           │  Loads from phone
+─────────────────────────────────────────────────────
+```
+
+---
+
+## Storage Breakdown
+
+```
+On Your Phone After Install:
+
+┌─────────────────────────────────┐
+│  App Storage                    │
+├─────────────────────────────────┤
+│  App Files:        ~5-10 MB     │
+│  Your Photos:      Varies       │
+│  Your Notes:       <1 MB        │
+│  Offline Queue:    <1 MB        │
+│  Total:            ~10-20 MB    │
+└─────────────────────────────────┘
+
+Automatically managed:
+• Old synced items deleted
+• Cache updated when online
+• No manual cleanup needed
+```
+
+---
+
+## Installation Status Check
+
+```
+❓ How do I know it's installed?
+
+✅ App icon on home screen
+✅ Opens full screen (no Safari bars)
+✅ Works with WiFi off
+✅ In app switcher as "Pearson Nexus AI"
+
+❌ Still need to type URL
+❌ See Safari browser bars
+❌ Won't work offline
+→ Not installed yet, try again
+```
+
+---
+
+**INSTALL ONCE → USE FOREVER → SYNC WHEN CONVENIENT!**

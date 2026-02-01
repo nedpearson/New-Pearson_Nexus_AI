@@ -1,0 +1,44 @@
+═══════════════════════════════════════════════════════════════════
+   PEARSON NEXUS AI - MOBILE ACCESS QUICK START
+═══════════════════════════════════════════════════════════════════
+
+✅ FIXED: Server now uses IP address instead of hostname!
+
+📱 TO ACCESS FROM YOUR PHONE:
+   
+   1. On your PC, open: http://localhost:3001/qr
+   
+   2. Scan the QR code with your phone camera
+   
+   3. The QR code contains: http://192.168.0.28:3001/launch
+   
+   4. Make sure phone is on SAME Wi-Fi as PC
+
+🔐 LOGIN CREDENTIALS:
+   
+   Email:    nedpearson@gmail.com
+   Password: 1Pearson2
+
+🖥️ PC URLS:
+   
+   Launch Page: http://localhost:3001/launch
+   QR Code:     http://localhost:3001/qr
+   Main App:    http://localhost:3001/
+
+📱 PHONE URLS:
+   
+   Direct Link: http://192.168.0.28:3001/launch
+
+🔧 IF IT DOESN'T WORK:
+   
+   ✓ Check both devices on same Wi-Fi
+   ✓ Check Windows Firewall allows port 3001
+   ✓ Verify server is running (look for the terminal window)
+   ✓ Try accessing http://192.168.0.28:3001/launch directly in phone browser
+
+💡 TIP: Save the launch page to your phone's home screen for quick access!
+
+═══════════════════════════════════════════════════════════════════
+Last Updated: February 1, 2026
+Status: ✅ Working with IP address detection
+═══════════════════════════════════════════════════════════════════

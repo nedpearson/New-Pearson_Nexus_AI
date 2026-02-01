@@ -38,6 +38,20 @@ const PORT = Number(process.env.AUTH_PORT || 3001);
 const UI_DEV_TARGET = process.env.PNX_UI_PROXY_TARGET || 'http://127.0.0.1:5174';
 const HOSTNAME = os.hostname();
 
+// Get local network IP address for mobile access
+function getNetworkIP() {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      // Skip internal (loopback) and non-IPv4 addresses
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return HOSTNAME; // Fallback to hostname if no network IP found
+}
+
 const COOKIE_ACCESS = 'pnx_access';
 const COOKIE_REFRESH = 'pnx_refresh';
 
@@ -69,8 +83,7 @@ const upload = multer({
 });
 
 // Serve uploaded files (local testing convenience)
-// IMPORTANT: do NOT mount at "/uploads" because "/uploads" is a React route.
-app.use('/uploads/files', express.static(UPLOAD_DIR));
+app.use('/uploads', express.static(UPLOAD_DIR));
 
 let data = await ensureSeeded(await loadData());
 
@@ -359,11 +372,8 @@ app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
 // Phone-friendly landing page: save this URL on your home screen.
 app.get('/launch', (req, res) => {
-  const hostHeader = String(req.headers.host || '');
-  const hostOnly = hostHeader.includes(':') ? hostHeader.split(':')[0] : hostHeader;
-  const preferredHost = hostOnly || HOSTNAME;
-
-  const baseUrl = `http://${preferredHost}:${PORT}`;
+  const networkIP = getNetworkIP();
+  const baseUrl = `http://${networkIP}:${PORT}`;
   const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -379,6 +389,13 @@ app.get('/launch', (req, res) => {
     code{background:rgba(0,0,0,.25);padding:2px 6px;border-radius:8px}
   </style>
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <script>
+    // Auto-redirect mobile devices to mobile app
+    if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+      setTimeout(() => { window.location.href = '/mobile'; }, 2000);
+    }
+  </script>
 </head>
 <body>
   <div class="card">
@@ -393,9 +410,10 @@ app.get('/launch', (req, res) => {
       <div class="muted" style="margin-top:6px">If this hostname doesn’t resolve on your phone, use the Network URL printed in the PC terminal instead.</div>
     </div>
 
-    <a class="btn" href="/">Open App</a>
+    <a class="btn" href="/mobile">📱 Open Mobile App</a>
+    <a class="btn" href="/" style="background:linear-gradient(90deg,#1f2937,#374151);margin-top:8px">🖥️ Desktop Version</a>
     <div style="margin-top:10px" class="muted">
-      Useful pages: <a href="/capture">Capture</a> • <a href="/uploads">Uploads</a>
+      Quick links: <a href="/uploads">Uploads</a> • <a href="${baseUrl}/qr">QR Code</a>
     </div>
   </div>
 </body>
@@ -407,11 +425,9 @@ app.get('/launch', (req, res) => {
 
 // QR code page for easy phone setup
 app.get('/qr', async (req, res) => {
-  const hostHeader = String(req.headers.host || '');
-  const hostOnly = hostHeader.includes(':') ? hostHeader.split(':')[0] : hostHeader;
-  const preferredHost = hostOnly || HOSTNAME;
-
-  const url = `http://${preferredHost}:${PORT}/launch`;
+  // Always use network IP for QR code so it works on phones
+  const networkIP = getNetworkIP();
+  const url = `http://${networkIP}:${PORT}/launch`;
 
   let dataUrl = '';
   try {
@@ -503,17 +519,16 @@ app.use(
     pathFilter: (pathName) => {
       return !(
         pathName.startsWith('/api') ||
-        pathName.startsWith('/uploads/files') ||
-        pathName.startsWith('/launch') ||
-        pathName.startsWith('/qr')
+        pathName.startsWith('/uploads') ||
+        pathName.startsWith('/launch')
       );
     }
   })
 );
 
 app.listen(PORT, () => {
+  const networkIP = getNetworkIP();
   console.log(`✅ Auth server listening on http://localhost:${PORT}`);
-  console.log(`📱 Phone link (hostname): http://${HOSTNAME}:${PORT}/launch`);
+  console.log(`📱 Phone link (network IP): http://${networkIP}:${PORT}/launch`);
   console.log(`🖥️  Local link: http://localhost:${PORT}/launch`);
 });
-

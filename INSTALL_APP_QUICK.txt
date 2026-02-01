@@ -1,0 +1,191 @@
+═══════════════════════════════════════════════════════════════
+  INSTALL APP ON PHONE - QUICK GUIDE
+═══════════════════════════════════════════════════════════════
+
+📱 IPHONE (Safari):
+
+  Step 1: Open Safari
+          Go to: http://192.168.0.28:3001/mobile
+
+  Step 2: Tap Share button
+          📤 (Square with arrow at bottom)
+
+  Step 3: Tap "Add to Home Screen"
+          ➕ (Scroll to find it)
+
+  Step 4: Tap "Add"
+          ✅ App icon appears!
+
+═══════════════════════════════════════════════════════════════
+  🤖 ANDROID (Chrome):
+
+  Option A: Automatic
+    1. Open: http://192.168.0.28:3001/mobile
+    2. Wait 3 seconds
+    3. Banner appears: "Install App"
+    4. Tap "Install Now"
+    5. Tap "Install" on popup
+    6. ✅ Done!
+
+  Option B: Manual
+    1. Open: http://192.168.0.28:3001/mobile
+    2. Tap ⋮ menu (3 dots)
+    3. Tap "Install app"
+    4. Tap "Install"
+    5. ✅ Done!
+
+═══════════════════════════════════════════════════════════════
+  ✅ AFTER INSTALLATION
+═══════════════════════════════════════════════════════════════
+
+  Home Screen:
+    ┌────────────────┐
+    │   [App Icon]   │
+    │ Pearson Nexus  │
+    └────────────────┘
+
+  Opens:
+    • Full screen (no browser)
+    • Like a native app
+    • Instant loading
+
+  Works:
+    • ✅ Completely offline
+    • ✅ Anywhere (no WiFi needed)
+    • ✅ Take photos
+    • ✅ Add notes
+    • ✅ All stored on phone
+
+═══════════════════════════════════════════════════════════════
+  🔄 SYNC WHEN BACK ONLINE
+═══════════════════════════════════════════════════════════════
+
+  Away from home:
+    📴 Offline Mode • 5 items pending
+    ✅ Everything works normally
+
+  Back online:
+    📶 Online • 5 pending
+    👆 Tap "Sync Now (5)"
+    ✅ All data uploads to server
+
+═══════════════════════════════════════════════════════════════
+  🧪 TEST IT
+═══════════════════════════════════════════════════════════════
+
+  1. Install app (at home on WiFi)
+  2. Open installed app → Works ✅
+  3. Turn OFF WiFi
+  4. Close app
+  5. Open app again
+  6. ✅ STILL WORKS!
+  7. Take photo, add notes
+  8. All saved locally
+  9. Turn ON WiFi
+  10. Tap "Sync Now"
+  11. ✅ Data uploads!
+
+═══════════════════════════════════════════════════════════════
+  📍 USE CASES
+═══════════════════════════════════════════════════════════════
+
+  Scenario 1: At Work (No Home WiFi)
+    • Open installed app
+    • Take photos of documents
+    • Add voice notes
+    • All stored on phone
+    • Sync when home
+
+  Scenario 2: Court Visit
+    • No internet at courthouse
+    • Open app (works offline!)
+    • Capture evidence
+    • Notes automatically saved
+    • Sync later when online
+
+  Scenario 3: On The Road
+    • Traveling for days
+    • App works entire time
+    • All data stays on phone
+    • Sync when at hotel WiFi
+    • Or sync when back home
+
+═══════════════════════════════════════════════════════════════
+  🎯 KEY BENEFITS
+═══════════════════════════════════════════════════════════════
+
+  VS Browser Version:
+    ❌ Need to type URL every time
+    ❌ Need to be on home network
+    ❌ Won't work offline
+    ❌ Loses data if tab closes
+
+  VS Installed App:
+    ✅ Tap icon to open
+    ✅ Works anywhere
+    ✅ Works offline
+    ✅ Data never lost
+    ✅ Like a real app
+
+═══════════════════════════════════════════════════════════════
+  📦 WHAT GETS INSTALLED
+═══════════════════════════════════════════════════════════════
+
+  On Your Phone:
+    • App files (~5-10 MB)
+    • App icon
+    • Service worker (offline support)
+    • Local database (your captures)
+
+  Storage:
+    • Photos: Stored until synced
+    • Notes: Stored permanently
+    • Queue: Tracks pending items
+    • Cache: App files for offline
+
+═══════════════════════════════════════════════════════════════
+  🔧 TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════
+
+  iPhone - "Add to Home Screen" missing?
+    → Must use Safari (not Chrome)
+    → Already installed? Check home screen
+
+  Android - "Install app" missing?
+    → Must use Chrome
+    → Already installed? Check app drawer
+
+  App won't work offline?
+    → Open once while online first
+    → Let it fully load
+    → Service worker needs to install
+
+  Sync not working?
+    → Check you're online (WiFi/data)
+    → See green "Online" indicator
+    → Tap "Sync Now" manually
+
+═══════════════════════════════════════════════════════════════
+  🚀 GET STARTED NOW
+═══════════════════════════════════════════════════════════════
+
+  iPhone Users:
+    1. Safari → http://192.168.0.28:3001/mobile
+    2. Share → Add to Home Screen
+    3. Done!
+
+  Android Users:
+    1. Chrome → http://192.168.0.28:3001/mobile
+    2. Wait for "Install App" banner
+    3. Tap "Install Now"
+    4. Done!
+
+═══════════════════════════════════════════════════════════════
+  📱 YOUR APP IS READY TO INSTALL!
+═══════════════════════════════════════════════════════════════
+
+  Access: http://192.168.0.28:3001/mobile
+  
+  Install → Use anywhere → Sync when online!
+
+═══════════════════════════════════════════════════════════════
