@@ -423,6 +423,27 @@ app.get('/launch', (req, res) => {
   return res.send(html);
 });
 
+// QR code image only (for embedding)
+app.get('/qr-image', async (req, res) => {
+  const networkIP = getNetworkIP();
+  const url = `http://${networkIP}:${PORT}/mobile`;
+
+  try {
+    const buffer = await QRCode.toBuffer(url, { 
+      margin: 2, 
+      width: 400,
+      color: {
+        dark: '#667eea',
+        light: '#ffffff'
+      }
+    });
+    res.setHeader('Content-Type', 'image/png');
+    return res.send(buffer);
+  } catch (e) {
+    return res.status(500).send('Failed to generate QR code');
+  }
+});
+
 // QR code page for easy phone setup
 app.get('/qr', async (req, res) => {
   // Always use network IP for QR code so it works on phones
