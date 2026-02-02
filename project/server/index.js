@@ -23,6 +23,25 @@ import {
   generateId
 } from './store.js';
 
+import { getSupabaseAdmin, isSupabaseServerConfigured } from './supabaseAdmin.js';
+import {
+  supabaseEnsureSeeded,
+  supabaseCreateUserWithOrg,
+  supabaseFindUserByEmail,
+  supabaseGetUserById,
+  supabaseGetOrgForUser,
+  supabaseUpdateUser,
+  supabaseSetUserPasswordHash,
+  supabaseUpsertRefreshToken,
+  supabaseGetRefreshToken,
+  supabaseDeleteRefreshToken,
+  supabaseInsertPasswordReset,
+  supabaseGetPasswordReset,
+  supabaseMarkPasswordResetUsed,
+  supabaseInsertUpload,
+  supabaseListUploads
+} from './supabaseStore.js';
+
 import {
   newJti,
   signAccessToken,
@@ -33,10 +52,11 @@ import {
   cookieOptions
 } from './tokens.js';
 
-const PORT = Number(process.env.AUTH_PORT || 3001);
+const PORT = Number(process.env.PORT || process.env.AUTH_PORT || 3001);
 // Use IPv4 loopback to avoid localhost->IPv6 (::1) issues on Windows
 const UI_DEV_TARGET = process.env.PNX_UI_PROXY_TARGET || 'http://127.0.0.1:5174';
 const HOSTNAME = os.hostname();
+const IS_PROD = process.env.NODE_ENV === 'production';
 
 // Get local network IP address for mobile access
 function getNetworkIP() {
@@ -56,6 +76,11 @@ const COOKIE_ACCESS = 'pnx_access';
 const COOKIE_REFRESH = 'pnx_refresh';
 
 const app = express();
+
+// Trust proxy in production (Railway/Heroku-style)
+if (IS_PROD) {
+  app.set('trust proxy', 1);
+}
 
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
@@ -83,9 +108,19 @@ const upload = multer({
 });
 
 // Serve uploaded files (local testing convenience)
-app.use('/uploads', express.static(UPLOAD_DIR));
+// IMPORTANT: do NOT mount at "/uploads" because "/uploads" is a React route.
+app.use('/uploads/files', express.static(UPLOAD_DIR));
 
-let data = await ensureSeeded(await loadData());
+const USE_SUPABASE_DB = isSupabaseServerConfigured();
+let data = null;
+
+if (USE_SUPABASE_DB) {
+  await supabaseEnsureSeeded();
+  console.log('✅ Using Supabase Postgres for server data');
+} else {
+  data = await ensureSeeded(await loadData());
+  console.log('✅ Using local JSON DB (server/data.json)');
+}
 
 function setAuthCookies(res, { accessToken, refreshToken, rememberMe }) {
   const { access, refresh } = cookieOptions({ rememberMe });
@@ -138,7 +173,9 @@ app.post('/api/auth/signup', async (req, res) => {
   const { email, password, name } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'MISSING_FIELDS' });
 
-  const created = await createUserWithOrg(data, { email, password, name });
+  const created = USE_SUPABASE_DB
+    ? await supabaseCreateUserWithOrg({ email, password, name })
+    : await createUserWithOrg(data, { email, password, name });
   if (!created.ok) return res.status(409).json({ error: created.error || 'SIGNUP_FAILED' });
 
   // Short-lived session by default after signup (no rememberMe persistence)
@@ -157,13 +194,17 @@ app.post('/api/auth/login', async (req, res) => {
   const { email, password, rememberMe } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'MISSING_FIELDS' });
 
-  const userRecord = findUserByEmail(data, email);
+  const userRecord = USE_SUPABASE_DB
+    ? await supabaseFindUserByEmail(email)
+    : findUserByEmail(data, email);
   if (!userRecord) return res.status(401).json({ error: 'INVALID_CREDENTIALS' });
 
   const ok = await verifyPassword(userRecord, password);
   if (!ok) return res.status(401).json({ error: 'INVALID_CREDENTIALS' });
 
-  const org = getOrgForUser(data, userRecord);
+  const org = USE_SUPABASE_DB
+    ? await supabaseGetOrgForUser(userRecord)
+    : getOrgForUser(data, userRecord);
   if (!org) return res.status(500).json({ error: 'ORG_NOT_FOUND' });
 
   // Always issue a new access token (short-lived)
@@ -175,16 +216,24 @@ app.post('/api/auth/login', async (req, res) => {
   if (rememberMe) {
     const jti = newJti();
     refreshToken = signRefreshToken({ userId: userRecord.id, jti });
-    data.refreshTokens[userRecord.id] = {
-      tokenHash: sha256Base64url(refreshToken),
-      jti,
-      // server-side expiration mirror (ms)
-      expiresAt: Date.now() + (30 * 24 * 60 * 60 * 1000)
-    };
-    await saveData(data);
+    const tokenHash = sha256Base64url(refreshToken);
+    const expiresAtMs = Date.now() + (30 * 24 * 60 * 60 * 1000);
+    if (USE_SUPABASE_DB) {
+      await supabaseUpsertRefreshToken(userRecord.id, { tokenHash, jti, expiresAtMs });
+    } else {
+      data.refreshTokens[userRecord.id] = {
+        tokenHash,
+        jti,
+        // server-side expiration mirror (ms)
+        expiresAt: expiresAtMs
+      };
+      await saveData(data);
+    }
   } else {
     // Non-remember sessions must not persist across restarts; also revoke any existing refresh token
-    if (data.refreshTokens[userRecord.id]) {
+    if (USE_SUPABASE_DB) {
+      await supabaseDeleteRefreshToken(userRecord.id);
+    } else if (data.refreshTokens[userRecord.id]) {
       delete data.refreshTokens[userRecord.id];
       await saveData(data);
     }
@@ -201,9 +250,13 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 app.get('/api/auth/me', requireAccess, async (req, res) => {
-  const userRecord = data.users[req.auth.userId];
+  const userRecord = USE_SUPABASE_DB
+    ? await supabaseGetUserById(req.auth.userId)
+    : data.users[req.auth.userId];
   if (!userRecord) return res.status(401).json({ error: 'UNAUTHENTICATED' });
-  const org = getOrgForUser(data, userRecord);
+  const org = USE_SUPABASE_DB
+    ? await supabaseGetOrgForUser(userRecord)
+    : getOrgForUser(data, userRecord);
   if (!org) return res.status(500).json({ error: 'ORG_NOT_FOUND' });
 
   return res.json({ session: sessionFromUser(userRecord, org, req.accessPayload) });
@@ -222,7 +275,9 @@ app.post('/api/auth/refresh', async (req, res) => {
   }
 
   const userId = payload.sub;
-  const stored = data.refreshTokens[userId];
+  const stored = USE_SUPABASE_DB
+    ? await supabaseGetRefreshToken(userId)
+    : data.refreshTokens[userId];
   if (!stored) {
     clearAuthCookies(res);
     return res.status(401).json({ error: 'REFRESH_REVOKED' });
@@ -232,32 +287,52 @@ app.post('/api/auth/refresh', async (req, res) => {
   const presentedHash = sha256Base64url(token);
   if (presentedHash !== stored.tokenHash || payload.jti !== stored.jti) {
     // Token reuse detected -> revoke the refresh token family for this user
-    delete data.refreshTokens[userId];
-    await saveData(data);
+    if (USE_SUPABASE_DB) {
+      await supabaseDeleteRefreshToken(userId);
+    } else {
+      delete data.refreshTokens[userId];
+      await saveData(data);
+    }
     clearAuthCookies(res);
     return res.status(401).json({ error: 'REFRESH_REUSE_DETECTED' });
   }
 
-  const userRecord = data.users[userId];
+  const userRecord = USE_SUPABASE_DB
+    ? await supabaseGetUserById(userId)
+    : data.users[userId];
   if (!userRecord) {
-    delete data.refreshTokens[userId];
-    await saveData(data);
+    if (USE_SUPABASE_DB) {
+      await supabaseDeleteRefreshToken(userId);
+    } else {
+      delete data.refreshTokens[userId];
+      await saveData(data);
+    }
     clearAuthCookies(res);
     return res.status(401).json({ error: 'UNAUTHENTICATED' });
   }
 
-  const org = getOrgForUser(data, userRecord);
+  const org = USE_SUPABASE_DB
+    ? await supabaseGetOrgForUser(userRecord)
+    : getOrgForUser(data, userRecord);
   if (!org) return res.status(500).json({ error: 'ORG_NOT_FOUND' });
 
   // Rotate refresh token
   const newTokenJti = newJti();
   const newRefresh = signRefreshToken({ userId, jti: newTokenJti });
-  data.refreshTokens[userId] = {
-    tokenHash: sha256Base64url(newRefresh),
-    jti: newTokenJti,
-    expiresAt: Date.now() + (30 * 24 * 60 * 60 * 1000)
-  };
-  await saveData(data);
+  {
+    const tokenHash = sha256Base64url(newRefresh);
+    const expiresAtMs = Date.now() + (30 * 24 * 60 * 60 * 1000);
+    if (USE_SUPABASE_DB) {
+      await supabaseUpsertRefreshToken(userId, { tokenHash, jti: newTokenJti, expiresAtMs });
+    } else {
+      data.refreshTokens[userId] = {
+        tokenHash,
+        jti: newTokenJti,
+        expiresAt: expiresAtMs
+      };
+      await saveData(data);
+    }
+  }
 
   const accessToken = signAccessToken({ userId });
   const accessPayload = verifyAccessToken(accessToken);
@@ -272,9 +347,13 @@ app.post('/api/auth/logout', async (req, res) => {
   if (refresh) {
     try {
       const payload = verifyRefreshToken(refresh);
-      if (payload?.sub && data.refreshTokens[payload.sub]) {
-        delete data.refreshTokens[payload.sub];
-        await saveData(data);
+      if (payload?.sub) {
+        if (USE_SUPABASE_DB) {
+          await supabaseDeleteRefreshToken(payload.sub);
+        } else if (data.refreshTokens[payload.sub]) {
+          delete data.refreshTokens[payload.sub];
+          await saveData(data);
+        }
       }
     } catch {
       // ignore invalid refresh token, just clear cookies
@@ -293,20 +372,26 @@ app.post('/api/auth/forgot-password', async (req, res) => {
   const normalizedEmail = String(email || '').trim().toLowerCase();
   if (!normalizedEmail) return res.status(200).json({ ok: true });
 
-  const userRecord = findUserByEmail(data, normalizedEmail);
+  const userRecord = USE_SUPABASE_DB
+    ? await supabaseFindUserByEmail(normalizedEmail)
+    : findUserByEmail(data, normalizedEmail);
 
   if (userRecord) {
     const token = randomTokenBase64url(32);
     const tokenHash = sha256Base64url(token);
     const expiresAt = Date.now() + (60 * 60 * 1000); // 1 hour
 
-    data.passwordResets ||= {};
-    data.passwordResets[tokenHash] = {
-      userId: userRecord.id,
-      expiresAt,
-      usedAt: null
-    };
-    await saveData(data);
+    if (USE_SUPABASE_DB) {
+      await supabaseInsertPasswordReset(tokenHash, { userId: userRecord.id, expiresAtMs: expiresAt });
+    } else {
+      data.passwordResets ||= {};
+      data.passwordResets[tokenHash] = {
+        userId: userRecord.id,
+        expiresAt,
+        usedAt: null
+      };
+      await saveData(data);
+    }
 
     // Dev-only: log the reset link (no email integration in this repo yet)
     const origin = req.headers?.origin || 'http://localhost:5174';
@@ -323,24 +408,33 @@ app.post('/api/auth/reset-password', async (req, res) => {
   }
 
   const tokenHash = sha256Base64url(String(token));
-  const entry = data.passwordResets?.[tokenHash];
+  const entry = USE_SUPABASE_DB
+    ? await supabaseGetPasswordReset(tokenHash)
+    : data.passwordResets?.[tokenHash];
   if (!entry) return res.status(400).json({ error: 'INVALID_OR_EXPIRED_TOKEN' });
   if (entry.usedAt) return res.status(400).json({ error: 'TOKEN_ALREADY_USED' });
   if (entry.expiresAt < Date.now()) return res.status(400).json({ error: 'INVALID_OR_EXPIRED_TOKEN' });
 
-  const userRecord = data.users?.[entry.userId];
+  const userRecord = USE_SUPABASE_DB
+    ? await supabaseGetUserById(entry.userId)
+    : data.users?.[entry.userId];
   if (!userRecord) return res.status(400).json({ error: 'INVALID_OR_EXPIRED_TOKEN' });
 
   // Update password
   // bcrypt is only used inside store.js currently; import here lazily to keep dependencies simple.
   const bcrypt = (await import('bcryptjs')).default;
   const passwordHash = await bcrypt.hash(String(newPassword), 10);
-  data.users[entry.userId] = { ...userRecord, passwordHash };
-
-  // Mark token used and revoke refresh tokens (force re-login everywhere)
-  data.passwordResets[tokenHash] = { ...entry, usedAt: Date.now() };
-  if (data.refreshTokens?.[entry.userId]) delete data.refreshTokens[entry.userId];
-  await saveData(data);
+  if (USE_SUPABASE_DB) {
+    await supabaseSetUserPasswordHash(entry.userId, passwordHash);
+    await supabaseMarkPasswordResetUsed(tokenHash);
+    await supabaseDeleteRefreshToken(entry.userId);
+  } else {
+    data.users[entry.userId] = { ...userRecord, passwordHash };
+    // Mark token used and revoke refresh tokens (force re-login everywhere)
+    data.passwordResets[tokenHash] = { ...entry, usedAt: Date.now() };
+    if (data.refreshTokens?.[entry.userId]) delete data.refreshTokens[entry.userId];
+    await saveData(data);
+  }
 
   clearAuthCookies(res);
   return res.json({ ok: true });
@@ -350,7 +444,9 @@ app.patch('/api/auth/users/:userId', requireAccess, async (req, res) => {
   const { userId } = req.params;
   if (req.auth.userId !== userId) return res.status(403).json({ error: 'FORBIDDEN' });
 
-  const record = data.users[userId];
+  const record = USE_SUPABASE_DB
+    ? await supabaseGetUserById(userId)
+    : data.users[userId];
   if (!record) return res.status(404).json({ error: 'NOT_FOUND' });
 
   const { updates } = req.body || {};
@@ -362,10 +458,14 @@ app.patch('/api/auth/users/:userId', requireAccess, async (req, res) => {
     if (!allowed.includes(key)) delete updates[key];
   }
 
-  data.users[userId] = { ...record, ...updates };
-  await saveData(data);
-
-  return res.json({ user: publicUser(data.users[userId]) });
+  if (USE_SUPABASE_DB) {
+    const updated = await supabaseUpdateUser(userId, updates);
+    return res.json({ user: publicUser(updated) });
+  } else {
+    data.users[userId] = { ...record, ...updates };
+    await saveData(data);
+    return res.json({ user: publicUser(data.users[userId]) });
+  }
 });
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
@@ -498,20 +598,74 @@ app.post('/api/uploads', upload.single('file'), async (req, res) => {
 
   const { caseId, tags, notes, capturedAt, location } = req.body || {};
 
+  const id = generateId();
+  const createdAtIso = new Date().toISOString();
+  const tagsList = typeof tags === 'string' ? tags.split(',').map(s => s.trim()).filter(Boolean) : [];
+  const capturedAtValue = typeof capturedAt === 'string' ? capturedAt : null;
+  const locationValue = typeof location === 'string' ? location : null;
+
+  // Hash content for integrity
+  const fileBytes = await fs.readFile(file.path);
+  const sha256 = sha256Base64url(fileBytes);
+
+  if (USE_SUPABASE_DB) {
+    const sb = getSupabaseAdmin();
+    if (!sb) return res.status(500).json({ error: 'SUPABASE_NOT_CONFIGURED' });
+
+    const bucket = process.env.SUPABASE_UPLOADS_BUCKET || 'uploads';
+    const objectKey = `${id}/${file.filename}`;
+
+    const uploadRes = await sb.storage.from(bucket).upload(objectKey, fileBytes, {
+      contentType: file.mimetype,
+      upsert: false
+    });
+    if (uploadRes.error) {
+      return res.status(500).json({ error: 'STORAGE_UPLOAD_FAILED' });
+    }
+
+    // Best-effort cleanup of local temp file
+    try { await fs.unlink(file.path); } catch { /* ignore */ }
+
+    const record = {
+      id,
+      original_name: file.originalname,
+      stored_name: objectKey,
+      storage_path: objectKey,
+      mime_type: file.mimetype,
+      size: file.size,
+      sha256,
+      case_id: caseId || null,
+      tags: tagsList,
+      notes: typeof notes === 'string' ? notes : '',
+      captured_at: capturedAtValue,
+      location: locationValue,
+      created_at: createdAtIso
+    };
+
+    await supabaseInsertUpload(record);
+
+    const signed = await sb.storage.from(bucket).createSignedUrl(objectKey, 60 * 60); // 1 hour
+    const download_url = signed.data?.signedUrl || null;
+
+    return res.json({ upload: { ...record, download_url } });
+  }
+
+  // Local JSON mode (legacy)
   const record = {
-    id: generateId(),
+    id,
     original_name: file.originalname,
     stored_name: file.filename,
+    storage_path: `local:${file.filename}`,
     mime_type: file.mimetype,
     size: file.size,
-    sha256: sha256Base64url(await fs.readFile(file.path)),
+    sha256,
     path: file.path,
     case_id: caseId || null,
-    tags: typeof tags === 'string' ? tags.split(',').map(s => s.trim()).filter(Boolean) : [],
+    tags: tagsList,
     notes: typeof notes === 'string' ? notes : '',
-    captured_at: typeof capturedAt === 'string' ? capturedAt : null,
-    location: typeof location === 'string' ? location : null,
-    created_at: new Date().toISOString()
+    captured_at: capturedAtValue,
+    location: locationValue,
+    created_at: createdAtIso
   };
 
   data.uploads ||= [];
@@ -522,34 +676,77 @@ app.post('/api/uploads', upload.single('file'), async (req, res) => {
 });
 
 app.get('/api/uploads', async (_req, res) => {
+  if (USE_SUPABASE_DB) {
+    const sb = getSupabaseAdmin();
+    if (!sb) return res.status(500).json({ error: 'SUPABASE_NOT_CONFIGURED' });
+
+    const bucket = process.env.SUPABASE_UPLOADS_BUCKET || 'uploads';
+    const uploads = await supabaseListUploads();
+
+    // Attach signed download URLs for each item (short-lived)
+    const withUrls = await Promise.all(
+      uploads.map(async (u) => {
+        const signed = await sb.storage.from(bucket).createSignedUrl(u.stored_name, 60 * 60);
+        return { ...u, download_url: signed.data?.signedUrl || null };
+      })
+    );
+
+    return res.json({ uploads: withUrls });
+  }
   data.uploads ||= [];
   return res.json({ uploads: data.uploads });
 });
 
 // Single-port mode for phones: proxy the UI through this server (dev).
 // This makes your saved link stable: http://<PC-NAME>:3001/...
-app.use(
-  createProxyMiddleware({
-    target: UI_DEV_TARGET,
-    changeOrigin: true,
-    ws: true,
-    logLevel: 'silent',
-    /**
-     * Do NOT proxy API, upload files, or launch page.
-     */
-    pathFilter: (pathName) => {
-      return !(
-        pathName.startsWith('/api') ||
-        pathName.startsWith('/uploads') ||
-        pathName.startsWith('/launch')
-      );
+if (!IS_PROD) {
+  app.use(
+    createProxyMiddleware({
+      target: UI_DEV_TARGET,
+      changeOrigin: true,
+      ws: true,
+      logLevel: 'silent',
+      /**
+       * Do NOT proxy API, upload files, or launch page.
+       */
+      pathFilter: (pathName) => {
+        return !(
+          pathName.startsWith('/api') ||
+          pathName.startsWith('/uploads/files') ||
+          pathName.startsWith('/launch') ||
+          pathName.startsWith('/qr') ||
+          pathName.startsWith('/qr-image')
+        );
+      }
+    })
+  );
+} else {
+  // Production: serve built SPA from dist/
+  const distDir = path.resolve(process.cwd(), 'dist');
+  app.use(express.static(distDir, { index: false }));
+
+  // SPA fallback for client-side routes
+  app.get('*', (req, res, next) => {
+    const p = req.path || '';
+    if (
+      p.startsWith('/api') ||
+      p.startsWith('/uploads/files') ||
+      p.startsWith('/launch') ||
+      p.startsWith('/qr') ||
+      p.startsWith('/qr-image')
+    ) {
+      return next();
     }
-  })
-);
+    return res.sendFile(path.join(distDir, 'index.html'));
+  });
+}
 
 app.listen(PORT, () => {
   const networkIP = getNetworkIP();
-  console.log(`✅ Auth server listening on http://localhost:${PORT}`);
-  console.log(`📱 Phone link (network IP): http://${networkIP}:${PORT}/launch`);
-  console.log(`🖥️  Local link: http://localhost:${PORT}/launch`);
+  console.log(`✅ Server listening on port ${PORT}`);
+  if (!IS_PROD) {
+    console.log(`✅ Auth server listening on http://localhost:${PORT}`);
+    console.log(`📱 Phone link (network IP): http://${networkIP}:${PORT}/launch`);
+    console.log(`🖥️  Local link: http://localhost:${PORT}/launch`);
+  }
 });

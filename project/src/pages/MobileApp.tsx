@@ -7,8 +7,6 @@ import {
   Upload,
   Zap,
   Clock,
-  MapPin,
-  Tag,
   ChevronRight,
   Sparkles,
   CheckCircle2,
@@ -101,7 +99,7 @@ export default function MobileApp() {
         
         // Store handler for cleanup
         (result as any)._changeHandler = handleChange;
-      } catch (error) {
+      } catch (_error) {
         // Permissions API not supported or error - will check when user tries to record
         // This is normal on Safari/iOS and some other browsers
         console.log('Permissions API not available (this is normal on some browsers)');
@@ -245,7 +243,7 @@ export default function MobileApp() {
     }
   };
 
-  const processVoiceNote = async (audioBlob: Blob) => {
+  const processVoiceNote = async (_audioBlob: Blob) => {
     setIsProcessing(true);
     setStatus({ type: 'info', message: 'Transcribing audio...' });
 
@@ -335,7 +333,7 @@ export default function MobileApp() {
         fileCount: selectedFiles.length
       };
 
-      const itemId = offlineQueue.addToQueue('photo', queueItem);
+      offlineQueue.addToQueue('photo', queueItem);
 
       // Success message
       const photoCount = selectedFiles.length;

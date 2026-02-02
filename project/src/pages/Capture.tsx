@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Camera, Upload, FileText, Tag, Calendar, MapPin, Mic, Play, Pause, Square } from 'lucide-react';
+import { Camera, Upload, Tag, Calendar, MapPin, Mic, Play, Pause, Square } from 'lucide-react';
 
 export function Capture() {
   const [selectedCase, setSelectedCase] = useState('');
@@ -73,7 +73,7 @@ export function Capture() {
       }, 1000);
 
       setStatus('Recording voice note...');
-    } catch (error) {
+    } catch (_error) {
       setStatus('Microphone access denied');
     }
   };
@@ -105,7 +105,7 @@ export function Capture() {
     }
   };
 
-  const processVoiceNote = async (audioBlob: Blob) => {
+  const processVoiceNote = async (_audioBlob: Blob) => {
     setIsProcessing(true);
     setStatus('Transcribing voice note...');
 

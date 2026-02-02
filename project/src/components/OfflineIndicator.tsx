@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Wifi, WifiOff, Cloud, CloudOff, Database } from 'lucide-react';
+import { Wifi, WifiOff, Cloud, Database } from 'lucide-react';
 import { getOfflineQueue } from '../lib/offlineQueue';
 
 export function OfflineIndicator() {

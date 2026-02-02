@@ -3,7 +3,7 @@ import {
   User, Lock, Bell, Palette, Database, LogOut, ChevronDown, ChevronUp,
   Mail, Phone, Globe, Check, Link, Shield, Eye, Clock,
   Download, Trash2, Save, Smartphone, Monitor, Cloud,
-  DollarSign, Scale, Plus, X, CreditCard, Building, TrendingUp, FileText, Calendar, Briefcase
+  DollarSign, Scale, Plus, X, CreditCard, Building, TrendingUp, FileText, Briefcase
 } from 'lucide-react';
 import { useSettings } from '../contexts/SettingsContext';
 import { useAuth } from '../contexts/AuthContext';
