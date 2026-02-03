@@ -1,6 +1,7 @@
-﻿# ---- build stage ----
+# ---- build stage ----
 FROM node:20-alpine AS build
 WORKDIR /app
+RUN echo "BUILD_MARKER: ROOT_DOCKERFILE_USED" && node -v && npm -v
 COPY package*.json ./
 RUN npm ci
 COPY . .
