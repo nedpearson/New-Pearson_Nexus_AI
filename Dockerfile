@@ -12,11 +12,11 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 # Install static server globally (no dependency ambiguity)
-RUN npm i -g serve@14.2.1 && serve --version
+RUN npm i -g serve@14.2.5 && serve --version
 
 # Copy build output
 COPY --from=build /app/dist ./dist
 
 # Railway injects PORT; fall back to 8080 for local runs
 EXPOSE 8080
-CMD ["sh","-lc","echo BOOT_OK; echo PORT=$PORT; ls -la dist; serve -s dist -l ${PORT:-8080}"]
+CMD ["sh","-lc","serve -s dist -l ${PORT:-8080}"]
