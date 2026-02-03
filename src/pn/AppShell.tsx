@@ -37,6 +37,7 @@ export function AppShell() {
   const [isInstalled, setIsInstalled] = useState(false);
   const [mobileModalOpen, setMobileModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
 
   useEffect(() => {
     setLayout(loadLayout(fallbackLayout));
@@ -72,6 +73,29 @@ export function AppShell() {
     return () => {
       window.removeEventListener("beforeinstallprompt", onBip as any);
       window.removeEventListener("appinstalled", onInstalled as any);
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        if (typeof window === "undefined") return;
+        const url = window.location.origin;
+        // Lazy-load QR lib so we don't bloat initial boot.
+        const QRCode = (await import("qrcode")).default;
+        const dataUrl = await QRCode.toDataURL(url, {
+          margin: 1,
+          width: 92,
+          color: { dark: "#0b1020", light: "#ffffff" },
+        });
+        if (!cancelled) setQrDataUrl(dataUrl);
+      } catch {
+        // ignore
+      }
+    })();
+    return () => {
+      cancelled = true;
     };
   }, []);
 
@@ -201,6 +225,31 @@ export function AppShell() {
                   <Button variant="primary" onClick={() => setMobileModalOpen(true)} title="Open on your phone and install to Home Screen">
                     Install on Phone
                   </Button>
+                  <button
+                    type="button"
+                    onClick={() => setMobileModalOpen(true)}
+                    title="Scan to open on your phone"
+                    style={{
+                      display: "grid",
+                      gap: 6,
+                      alignItems: "center",
+                      justifyItems: "center",
+                      padding: 8,
+                      borderRadius: 16,
+                      border: "1px solid rgba(255,255,255,.18)",
+                      background: "rgba(255,255,255,.07)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <div style={{ width: 46, height: 46, borderRadius: 10, overflow: "hidden", background: "#fff", display: "grid", placeItems: "center" }}>
+                      {qrDataUrl ? (
+                        <img src={qrDataUrl} alt="QR code for phone install" width={46} height={46} style={{ display: "block" }} />
+                      ) : (
+                        <div style={{ width: 46, height: 46, display: "grid", placeItems: "center", color: "#0b1020", fontWeight: 900 }}>QR</div>
+                      )}
+                    </div>
+                    <div className="pn-small pn-muted" style={{ lineHeight: 1, whiteSpace: "nowrap" }}>Phone</div>
+                  </button>
                   <Button variant="primary" onClick={quickCapture}>Quick Capture</Button>
                 </div>
               </div>
