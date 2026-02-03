@@ -16,8 +16,9 @@ ENV NODE_ENV=production
 
 # install only prod deps (serve is in dependencies now)
 COPY package*.json ./
-RUN npm ci --omit=dev
-
+RUN npm ci --omit=dev \
+ && npm i -g serve@14.2.1 \
+ && serve --version
 RUN node -e "console.log('serve_version=', require('serve/package.json').version)"
 # copy build output
 COPY --from=build /app/dist ./dist
@@ -25,5 +26,6 @@ COPY --from=build /app/dist ./dist
 # Railway provides PORT; npm start uses $PORT in script
 EXPOSE 8080
 CMD ["npm","start"]
+
 
 
