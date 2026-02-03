@@ -17,10 +17,7 @@ export default function App() {
       }}>
       </div>
       <h1 style={{ marginTop: 48 }}></h1>
-      <p>If you see this, your blank page issue is resolved. Next we re-apply the playful UI safely.</p>
       <ul>
-        <li>URL should be http://127.0.0.1:5173/</li>
-        <li>Dev server must be started from this exact folder.</li>
       </ul>
     </div>
   );
