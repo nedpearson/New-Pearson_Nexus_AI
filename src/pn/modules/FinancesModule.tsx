@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { AppData } from "../data/model";
+import type { AppData } from "../data/model";
 import { Card, Button, Pill } from "../components/kit";
 
 function money(n: number) {

@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { MODULES, DEFAULT_DESKTOP_ORDER, DEFAULT_MOBILE_ORDER, isTierAllowed } from "./registry";
-import { ModuleKey, ModuleItem, Tier } from "./types";
+import type { ModuleKey, ModuleItem, Tier } from "./types";
 import { SAMPLE_DATA } from "./data/sample";
-import { loadData, loadLayout, saveData, saveLayout, LayoutState } from "./utils/store";
+import { loadData, loadLayout, saveData, saveLayout } from "./utils/store";
+import type { LayoutState } from "./utils/store";
 import { Brand } from "./components/Brand";
 import { Button, Card, Pill } from "./components/kit";
 

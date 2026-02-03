@@ -1,4 +1,4 @@
-import { ModuleItem, Tier } from "./types";
+import type { ModuleItem, Tier } from "./types";
 
 export const MODULES: ModuleItem[] = [
   { key: "dashboard", title: "Home",     subtitle: "Your daily hub",                    tier: "Free", accent: "cyan",   icon: "🏠" },

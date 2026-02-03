@@ -1,7 +1,8 @@
 import React, { useMemo, useRef, useState } from "react";
-import { AppData, Category } from "../data/model";
+import type { AppData, Category } from "../data/model";
 import { Button, Card, Pill } from "../components/kit";
-import { saveData, saveLayout, LayoutState } from "../utils/store";
+import { saveData, saveLayout } from "../utils/store";
+import type { LayoutState } from "../utils/store";
 import { MODULES } from "../registry";
 
 function move<T>(arr: T[], from: number, to: number) {

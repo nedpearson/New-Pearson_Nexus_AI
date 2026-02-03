@@ -1,4 +1,4 @@
-import { AppData, Category, LearningRule } from "../data/model";
+import type { AppData, Category, LearningRule } from "../data/model";
 
 const DATA_KEY = "pnx.data.v1";
 const LAYOUT_KEY = "pnx.layout.v1";

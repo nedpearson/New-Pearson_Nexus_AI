@@ -1,5 +1,5 @@
 import React from "react";
-import { AppData } from "../data/model";
+import type { AppData } from "../data/model";
 import { Tile, Card, Button, Pill } from "../components/kit";
 
 export function DashboardModule(props: { data: AppData; go: (k: any) => void; userTier: "Free"|"Plus"|"Pro" }) {

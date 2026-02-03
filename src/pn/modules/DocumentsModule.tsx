@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { AppData } from "../data/model";
+import type { AppData } from "../data/model";
 import { CapturePanel } from "../components/CapturePanel";
 import { Card, Button, Pill } from "../components/kit";
 import { learnCorrection, suggestCategories } from "../utils/store";

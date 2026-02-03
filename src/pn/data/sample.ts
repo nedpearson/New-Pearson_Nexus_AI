@@ -1,4 +1,4 @@
-import { AppData } from "./model";
+import type { AppData } from "./model";
 
 export const SAMPLE_DATA: AppData = {
   categories: [

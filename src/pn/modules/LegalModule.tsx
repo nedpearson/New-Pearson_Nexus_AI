@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { AppData } from "../data/model";
+import type { AppData } from "../data/model";
 import { Button, Card, Pill } from "../components/kit";
 
 function id(prefix: string) { return prefix + "_" + Math.random().toString(16).slice(2, 10); }

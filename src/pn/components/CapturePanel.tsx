@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
-import { AppData } from "../data/model";
+import type { AppData } from "../data/model";
 import { learnCorrection, suggestCategories } from "../utils/store";
 import { Button, Card, Pill } from "./kit";
 
