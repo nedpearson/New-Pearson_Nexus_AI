@@ -34,11 +34,95 @@
   });
 })();
 </script>
+<!-- PNX_DEBUG_CONSOLE_OVERLAY -->
+<script>
+(() => {
+  const id = 'pnx-debug-console';
+  const buf = [];
+  const MAX = 120;
+
+  const esc = (s) => String(s ?? '')
+    .replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))
+    .replace(/\u001b\[[0-9;]*m/g,''); // strip ANSI
+
+  function push(kind, args){
+    try{
+      const msg = args.map(a => {
+        if(a instanceof Error) return a.stack || a.message;
+        if(typeof a === 'string') return a;
+        try { return JSON.stringify(a); } catch { return String(a); }
+      }).join(' ');
+      buf.push({ t: new Date().toISOString(), kind, msg });
+      if(buf.length > MAX) buf.splice(0, buf.length - MAX);
+    } catch {}
+  }
+
+  function show(title){
+    if(document.getElementById(id)) return;
+    const d = document.createElement('div');
+    d.id = id;
+    d.style.cssText =
+      'position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.92);color:#fff;' +
+      'padding:16px;font:13px/1.35 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow:auto';
+    const root = document.getElementById('root');
+    const rootInfo = root
+      ? ('root.innerHTML.length=' + (root.innerHTML||'').length + ', children=' + root.childElementCount)
+      : 'root element missing';
+
+    const lines = buf.map(x => '[' + x.t + '] ' + x.kind + ': ' + x.msg).join('\n');
+
+    d.innerHTML =
+      '<div style="font-size:16px;font-weight:800;margin-bottom:10px">PNX debug overlay</div>' +
+      '<div style="opacity:.85;margin-bottom:10px">' + esc(title) + '</div>' +
+      '<div style="opacity:.85;margin-bottom:10px">' + esc(location.href) + '</div>' +
+      '<div style="opacity:.85;margin-bottom:12px">' + esc(rootInfo) + '</div>' +
+      '<pre style="white-space:pre-wrap;margin:0;opacity:.95">' + esc(lines || '(no logs captured)') + '</pre>' +
+      '<div style="margin-top:12px;opacity:.85">Copy everything above and paste it back into ChatGPT.</div>';
+    document.body.appendChild(d);
+  }
+
+  // capture console
+  const orig = {
+    log: console.log.bind(console),
+    warn: console.warn.bind(console),
+    error: console.error.bind(console),
+  };
+  console.log = (...a) => { push('log', a); orig.log(...a); };
+  console.warn = (...a) => { push('warn', a); orig.warn(...a); show('console.warn triggered'); };
+  console.error = (...a) => { push('error', a); orig.error(...a); show('console.error triggered'); };
+
+  // capture runtime errors
+  window.addEventListener('error', (e) => {
+    push('window.error', [e?.error?.stack || e?.message || String(e)]);
+    show('window.error');
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    push('unhandledrejection', [e?.reason?.stack || e?.reason?.message || String(e?.reason || e)]);
+    show('unhandledrejection');
+  });
+
+  // detect "blue screen" / no render
+  setTimeout(() => {
+    const root = document.getElementById('root');
+    const empty = !root || ((root.innerHTML||'').trim().length === 0);
+    if(empty){
+      push('probe', ['root empty after 2s (app not rendering)']);
+      show('root empty after 2s');
+    } else {
+      push('probe', ['root has content after 2s']);
+    }
+  }, 2000);
+
+  // breadcrumb
+  push('probe', ['debug overlay installed']);
+})();
+</script>
 </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
+
 
 
