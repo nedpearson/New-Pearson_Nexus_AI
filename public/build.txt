@@ -1,0 +1,7 @@
+PearsonNexusAI build marker
+
+If you can read this file on Railway, you are hitting the latest deployed image.
+
+Build time (UTC): 2026-02-04T00:00:00Z
+Source commit on GitHub main (expected): 95bf03e
+
