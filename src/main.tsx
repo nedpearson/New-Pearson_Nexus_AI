@@ -25,7 +25,7 @@ function __PNX_AppRoot() {
   return (
     <>
       <ErrorBoundary onCrash={(c) => setCrash(c)}>
-        <__PNX_AppRoot />
+        <App />
       </ErrorBoundary>
       <CrashOverlay crash={crash} onClose={() => setCrash(null)} />
     </>
