@@ -12,6 +12,15 @@ createRoot(el).render(
     <__PNX_AppRoot />
   </React.StrictMode>
 );
+
+// PWA: register service worker (enables install prompt on supported browsers)
+if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      // ignore registration failures
+    });
+  });
+}
 // --- PNX_APPROOT_OVERLAY_V1 ---
 type __PNXCrashInfo = { title: string; detail: string };
 

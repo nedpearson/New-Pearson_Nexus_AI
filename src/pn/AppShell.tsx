@@ -32,6 +32,12 @@ export function AppShell() {
   const [layout, setLayout] = useState<LayoutState>(() => fallbackLayout);
   const [data, setData] = useState(() => SAMPLE_DATA);
 
+  // --- PWA install UX ---
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [isInstalled, setIsInstalled] = useState(false);
+  const [mobileModalOpen, setMobileModalOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
   useEffect(() => {
     setLayout(loadLayout(fallbackLayout));
     setData(loadData(SAMPLE_DATA));
@@ -39,6 +45,56 @@ export function AppShell() {
 
   useEffect(() => { saveLayout(layout); }, [layout]);
   useEffect(() => { saveData(data); }, [data]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const checkInstalled = () => {
+      const standalone = window.matchMedia?.("(display-mode: standalone)")?.matches;
+      const iosStandalone = (window.navigator as any)?.standalone === true;
+      setIsInstalled(Boolean(standalone || iosStandalone));
+    };
+
+    checkInstalled();
+
+    const onBip = (e: any) => {
+      // Chrome/Edge: capture install prompt
+      e.preventDefault?.();
+      setInstallPrompt(e);
+    };
+    const onInstalled = () => {
+      setInstallPrompt(null);
+      setIsInstalled(true);
+    };
+
+    window.addEventListener("beforeinstallprompt", onBip as any);
+    window.addEventListener("appinstalled", onInstalled as any);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onBip as any);
+      window.removeEventListener("appinstalled", onInstalled as any);
+    };
+  }, []);
+
+  async function doInstall() {
+    if (!installPrompt) return;
+    try {
+      await installPrompt.prompt();
+      await installPrompt.userChoice?.catch?.(() => null);
+    } finally {
+      setInstallPrompt(null);
+    }
+  }
+
+  async function copyLink() {
+    try {
+      const url = window.location.origin;
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // ignore
+    }
+  }
 
   const byKey = useMemo(() => new Map(MODULES.map(m => [m.key, m])), []);
   const desktopItems = layout.desktopOrder.map(k => byKey.get(k)!).filter(Boolean);
@@ -134,10 +190,60 @@ export function AppShell() {
                 </div>
                 <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
                   <Pill>{layout.userTier}</Pill>
+                  <Button
+                    onClick={doInstall}
+                    disabled={isInstalled || !installPrompt}
+                    title={isInstalled ? "Already installed" : (installPrompt ? "Install the desktop app" : "Install not available yet (open in Chrome/Edge)")}                  >
+                    {isInstalled ? "Installed" : "Install Desktop App"}
+                  </Button>
+                  <Button onClick={() => setMobileModalOpen(true)} title="Open on your phone and install to Home Screen">
+                    Install on Phone
+                  </Button>
                   <Button variant="primary" onClick={quickCapture}>Quick Capture</Button>
                 </div>
               </div>
             </div>
+
+            {mobileModalOpen && (
+              <div
+                role="dialog"
+                aria-modal="true"
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 9999,
+                  background: "rgba(0,0,0,.55)",
+                  display: "grid",
+                  placeItems: "center",
+                  padding: 14,
+                }}
+                onClick={() => setMobileModalOpen(false)}
+              >
+                <div className="pn-card pn-p" style={{ maxWidth: 720, width: "100%" }} onClick={(e) => e.stopPropagation()}>
+                  <div className="pn-row" style={{ marginBottom: 8 }}>
+                    <div>
+                      <div style={{ fontWeight: 900, fontSize: 16 }}>Install on Phone</div>
+                      <div className="pn-small pn-muted">Open this link on your phone, then “Add to Home Screen”.</div>
+                    </div>
+                    <Button onClick={() => setMobileModalOpen(false)} title="Close">Close</Button>
+                  </div>
+
+                  <div className="pn-card pn-p" style={{ background: "rgba(0,0,0,.18)" }}>
+                    <div className="pn-small pn-muted">Link</div>
+                    <div style={{ fontWeight: 800, wordBreak: "break-all", marginTop: 6 }}>{typeof window !== "undefined" ? window.location.origin : ""}</div>
+                    <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <Button onClick={copyLink} variant="primary">{copied ? "Copied!" : "Copy Link"}</Button>
+                      <Button onClick={() => window.open(window.location.origin, "_blank")}>Open Link</Button>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: 12 }} className="pn-small pn-muted">
+                    iPhone/iPad: Safari → Share → “Add to Home Screen”.<br />
+                    Android: Chrome → menu (⋮) → “Install app” / “Add to Home screen”.
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="pn-col" style={{ marginTop: 14 }}>
               {content}
