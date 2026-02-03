@@ -33,7 +33,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "start": "vite preview --host 127.0.0.1 --port 8080"
+    "start": "node scripts/start.mjs"
   },
   "engines": {
     "node": ">=20 <23"
