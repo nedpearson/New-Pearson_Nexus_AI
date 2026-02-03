@@ -192,11 +192,13 @@ export function AppShell() {
                   <Pill>{layout.userTier}</Pill>
                   <Button
                     onClick={doInstall}
+                    variant="primary"
                     disabled={isInstalled || !installPrompt}
+                    style={isInstalled || !installPrompt ? { opacity: 0.9 } : undefined}
                     title={isInstalled ? "Already installed" : (installPrompt ? "Install the desktop app" : "Install not available yet (open in Chrome/Edge)")}                  >
                     {isInstalled ? "Installed" : "Install Desktop App"}
                   </Button>
-                  <Button onClick={() => setMobileModalOpen(true)} title="Open on your phone and install to Home Screen">
+                  <Button variant="primary" onClick={() => setMobileModalOpen(true)} title="Open on your phone and install to Home Screen">
                     Install on Phone
                   </Button>
                   <Button variant="primary" onClick={quickCapture}>Quick Capture</Button>
