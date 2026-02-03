@@ -1,14 +1,6 @@
 import React from "react";
 
 // --- PNX_SAFE_MODE_V1 ---
-
-// --- PNX_RENDER_TELEMETRY_V1 ---
-  try {
-    const m: any = (performance as any).memory;
-    if(!m) return null;
-    return Math.round((m.usedJSHeapSize / 1024 / 1024) * 10) / 10;
-  } catch { return null; }
-}
 const __PNX_SAFE =
   (typeof window !== "undefined") &&
   (new URLSearchParams(window.location.search).get("safe") === "1");
@@ -27,12 +19,10 @@ function __PNX_SafeModeScreen() {
   );
 }
 export default function App() {
-
-
-
-  const __pnxRender = (window as any).__PNX_RENDER_CT = (((window as any).__PNX_RENDER_CT) || 0) + 1;
-  if(__pnxRender % 50 === 0){ console.log('PNX renders=', __pnxRender, 'heapMB=', __pnxMemMB()); }
+  
+  
   if(__PNX_SAFE){ return <__PNX_SafeModeScreen />; }
+if(__PNX_SAFE){ return <__PNX_SafeModeScreen />; }
 return (
     <div style={{ padding: 24 }}>
       <div style={{
@@ -55,7 +45,5 @@ return (
     </div>
   );
 }
-
-
 
 
