@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -7,10 +7,38 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PearsonNexusAI Prototype</title>
-  </head>
+  <!-- PNX_CRASH_OVERLAY -->
+<script>
+(() => {
+  const id = 'pnx-crash-overlay';
+  const esc = (s) => String(s ?? '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  function show(title, detail){
+    if(document.getElementById(id)) return;
+    const d = document.createElement('div');
+    d.id = id;
+    d.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.88);color:#fff;padding:18px;font:14px/1.35 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow:auto';
+    d.innerHTML =
+      '<div style="font-size:16px;font-weight:700;margin-bottom:10px">PearsonNexusAI crashed on load</div>' +
+      '<div style="opacity:.85;margin-bottom:10px">' + esc(title) + '</div>' +
+      '<pre style="white-space:pre-wrap;margin:0;opacity:.95">' + esc(detail) + '</pre>' +
+      '<div style="margin-top:14px;opacity:.8">Fix: copy this error text and paste it back to ChatGPT.</div>';
+    document.body.appendChild(d);
+  }
+  window.addEventListener('error', (e) => {
+    const detail = e?.error?.stack || e?.message || String(e);
+    show('window.error', detail);
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    const detail = e?.reason?.stack || e?.reason?.message || String(e?.reason || e);
+    show('unhandledrejection', detail);
+  });
+})();
+</script>
+</head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
+
 
