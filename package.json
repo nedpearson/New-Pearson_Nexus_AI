@@ -33,7 +33,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "start": "serve -s dist -l $PORT"
+    "start": "sh -lc \"echo PORT=$PORT; echo PWD=$(pwd); ls -la; echo --- dist ---; ls -la dist || true; serve -s dist -l $PORT\""
   },
   "engines": {
     "node": ">=20 <23"
