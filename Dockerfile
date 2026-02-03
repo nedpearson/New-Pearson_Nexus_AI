@@ -1,9 +1,6 @@
 # ---- build stage ----
-FROM node:20-alpine AS build
-ARG CACHEBUST=1770143621
-RUN echo "CACHEBUST=1770143621"
+FROM node:20-alpine AS build
 WORKDIR /app
-RUN echo "BUILD_MARKER: ROOT_DOCKERFILE_USED" && node -v && npm -v
 COPY package*.json ./
 RUN npm ci
 COPY . .
@@ -14,8 +11,12 @@ FROM node:20-alpine AS run
 WORKDIR /app
 ENV NODE_ENV=production
 
-# install only prod deps (serve is in dependencies now)
-COPY package*.json ./
-RUN npm ci --omit=dev && npm i -g serve@14.2.1 && command -v serve && serve --version
-CMD ["sh","-lc","echo BOOT_OK; node -v; echo PORT=$PORT; echo PWD=$(pwd); ls -la; echo --- dist ---; ls -la dist || true; npm start"]
+# Install static server globally (no dependency ambiguity)
+RUN npm i -g serve@14.2.1 && serve --version
 
+# Copy build output
+COPY --from=build /app/dist ./dist
+
+# Railway injects PORT; fall back to 8080 for local runs
+EXPOSE 8080
+CMD ["sh","-lc","echo BOOT_OK; echo PORT=$PORT; ls -la dist; serve -s dist -l ${PORT:-8080}"]
