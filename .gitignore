@@ -23,5 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 .diagnostics/
+
+# Keep generic SW files ignored, but allow our explicit public kill-switch SW.
 sw.js
-public/sw.js
+!public/sw.js
