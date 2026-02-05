@@ -49,13 +49,13 @@ export function AppShell() {
         dashboard: true,
         clients: true,
         documents: true,
+        finances: true,
+        legal: true,
         // hidden by default (enable in Admin)
         invoices: false,
         projects: false,
         reports: false,
         guides: false,
-        finances: false,
-        legal: false,
         admin: true,
       };
     }
@@ -63,9 +63,9 @@ export function AppShell() {
     return {
       dashboard: true,
       documents: true,
+      finances: true,
+      legal: true,
       // hidden by default (enable in Admin)
-      finances: false,
-      legal: false,
       admin: true,
       // business-only keys default off
       clients: false,

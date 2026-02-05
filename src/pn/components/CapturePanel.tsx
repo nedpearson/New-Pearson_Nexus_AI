@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { AppData } from "../data/model";
 import { learnCorrection, suggestCategories } from "../utils/store";
 import { Button, Card, Pill } from "./kit";
@@ -11,9 +11,12 @@ function rid(prefix: string) {
 }
 
 export function CapturePanel(props: { data: AppData; setData: (n: AppData) => void }) {
-  const [mode, setMode] = useState<Mode>("note");
+  const [mode, setMode] = useState<Mode | "file">("note");
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
+  const [category, setCategory] = useState<string>("inbox");
+  const [newCategoryLabel, setNewCategoryLabel] = useState("");
+  const [fileName, setFileName] = useState<string>("");
 
   const [recState, setRecState] = useState<RecState>("idle");
   const [mediaUrl, setMediaUrl] = useState<string|undefined>(undefined);
@@ -23,11 +26,26 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
   const recRef = useRef<MediaRecorder|null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
 
-  const kind = mode === "note" ? "note" : mode === "voice" ? "voice" : "video";
+  const kind = mode === "file"
+    ? ((mime || "").startsWith("image/") ? "photo" : "note")
+    : mode === "note"
+      ? "note"
+      : mode === "voice"
+        ? "voice"
+        : "video";
 
   const suggestions = useMemo(() => {
     return suggestCategories(title || "Untitled", text || undefined, kind, props.data.categories, props.data.learning);
   }, [title, text, kind, props.data.categories, props.data.learning]);
+
+  // Initialize the category when suggestions update (but don't clobber user choice).
+  useEffect(() => {
+    if (!category || category === "inbox") {
+      const top = suggestions?.[0]?.category;
+      if (top) setCategory(top);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suggestions.map(s => s.category).join("|")]);
 
   async function start(kind: "voice"|"video") {
     stop(true);
@@ -68,6 +86,9 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
 
   function reset() {
     setTitle(""); setText(""); setMediaUrl(undefined); setMime(undefined); setRecState("idle");
+    setCategory("inbox");
+    setNewCategoryLabel("");
+    setFileName("");
     stop(true);
   }
 
@@ -100,6 +121,56 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
     reset();
   }
 
+  function normalizeKey(label: string) {
+    return label
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9\s_-]/g, "")
+      .replace(/\s+/g, "_")
+      .slice(0, 24);
+  }
+
+  function addCategoryInline() {
+    const label = newCategoryLabel.trim();
+    if (!label) return;
+    const base = normalizeKey(label) || "cat";
+    let key = base;
+    let n = 1;
+    while (props.data.categories.some((c) => c.key === key)) {
+      key = `${base}_${n++}`;
+    }
+    const next = {
+      ...props.data,
+      categories: [...props.data.categories, { key, label, color: "cyan" as const }],
+    };
+    props.setData(next);
+    setCategory(key);
+    setNewCategoryLabel("");
+  }
+
+  async function onPickFile(file: File | null) {
+    if (!file) return;
+    stop(true);
+    setRecState("idle");
+    setFileName(file.name);
+    setMime(file.type || "application/octet-stream");
+
+    // Read as data URL for persistence in localStorage (simple prototype).
+    // Guardrail: if file is huge, store a temporary object URL instead.
+    const maxBytes = 2_000_000; // ~2MB
+    if (file.size > maxBytes) {
+      const url = URL.createObjectURL(file);
+      setMediaUrl(url);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const url = typeof reader.result === "string" ? reader.result : "";
+      if (url) setMediaUrl(url);
+    };
+    reader.readAsDataURL(file);
+  }
+
   return (
     <Card
       title="Quick Capture"
@@ -110,6 +181,7 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
         <Button onClick={() => setMode("note")} variant={mode==="note" ? "primary" : "ghost"}>Note</Button>
         <Button onClick={() => setMode("voice")} variant={mode==="voice" ? "primary" : "ghost"}>Voice</Button>
         <Button onClick={() => setMode("video")} variant={mode==="video" ? "primary" : "ghost"}>Video</Button>
+        <Button onClick={() => setMode("file")} variant={mode==="file" ? "primary" : "ghost"}>Upload</Button>
       </div>
 
       <div className="pn-col" style={{ marginTop: 10 }}>
@@ -117,7 +189,36 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
         <textarea className="pn-textarea" value={text} onChange={(e)=>setText(e.target.value)} placeholder="Add a quick note (optional) — helps categorization." />
       </div>
 
-      {mode !== "note" && (
+      {mode === "file" && (
+        <div className="pn-item" style={{ marginTop: 10 }}>
+          <div className="pn-h2">Upload a file</div>
+          <div className="pn-small pn-muted" style={{ marginTop: 6 }}>
+            Choose a document/photo and assign a category. (Prototype: stored locally.)
+          </div>
+          <div style={{ marginTop: 10, display:"flex", gap:10, flexWrap:"wrap", alignItems:"center" }}>
+            <input
+              type="file"
+              onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
+              aria-label="Upload file"
+            />
+            {fileName && <Pill>{fileName}</Pill>}
+          </div>
+
+          {mediaUrl && (mime || "").startsWith("image/") && (
+            <div style={{ marginTop: 10 }}>
+              <img src={mediaUrl} alt="Uploaded preview" style={{ width: "100%", maxHeight: 360, objectFit: "contain", borderRadius: 14 }} />
+            </div>
+          )}
+          {mediaUrl && !(mime || "").startsWith("image/") && (
+            <div style={{ marginTop: 10 }}>
+              <a className="pn-btn" href={mediaUrl} target="_blank" rel="noreferrer">Open uploaded file</a>
+              {mime && <div className="pn-small pn-muted" style={{ marginTop: 8 }}>mime: {mime}</div>}
+            </div>
+          )}
+        </div>
+      )}
+
+      {mode !== "note" && mode !== "file" && (
         <div className="pn-item" style={{ marginTop: 10 }}>
           <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
             {mode === "voice" && (
@@ -142,7 +243,43 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
       )}
 
       <div className="pn-item" style={{ marginTop: 12 }}>
-        <div className="pn-h2">Suggested categories</div>
+        <div className="pn-h2">Category</div>
+        <div className="pn-small pn-muted" style={{ marginTop: 6 }}>
+          Pick the category it belongs to. You can change it later in the Library.
+        </div>
+
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginTop: 10, alignItems:"center" }}>
+          <select className="pn-select" value={category} onChange={(e)=>setCategory(e.target.value)} aria-label="Choose category" title="Choose category">
+            {props.data.categories.map((c) => (
+              <option key={c.key} value={c.key}>{c.label}</option>
+            ))}
+          </select>
+          <Button
+            variant="primary"
+            onClick={() => save(category)}
+            disabled={mode === "file" && !mediaUrl}
+            title={mode === "file" && !mediaUrl ? "Upload a file first" : "Save with selected category"}
+          >
+            Save
+          </Button>
+        </div>
+
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginTop: 10, alignItems:"center" }}>
+          <input
+            className="pn-input"
+            value={newCategoryLabel}
+            onChange={(e)=>setNewCategoryLabel(e.target.value)}
+            placeholder="Add new category…"
+            aria-label="New category label"
+            title="New category label"
+            style={{ maxWidth: 260 }}
+          />
+          <Button onClick={addCategoryInline} disabled={!newCategoryLabel.trim()} title="Add category">
+            + Add Category
+          </Button>
+        </div>
+
+        <div className="pn-h2" style={{ marginTop: 12 }}>Suggested categories</div>
         <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginTop: 10 }}>
           {suggestions.map(s => (
             <button key={s.category} className="pn-btn" onClick={() => save(s.category)} type="button" title="Approve and save">

@@ -55,6 +55,18 @@ export function DocumentsModule(props: { data: AppData; setData: (n: AppData) =>
 
                 {i.mediaUrl && i.kind === "voice" && <div style={{ marginTop: 10 }}><audio controls src={i.mediaUrl} style={{ width:"100%" }} /></div>}
                 {i.mediaUrl && i.kind === "video" && <div style={{ marginTop: 10 }}><video controls src={i.mediaUrl} style={{ width:"100%", borderRadius: 14 }} /></div>}
+                {i.mediaUrl && i.kind === "photo" && (
+                  <div style={{ marginTop: 10 }}>
+                    <img src={i.mediaUrl} alt={i.title} style={{ width:"100%", maxHeight: 420, objectFit:"contain", borderRadius: 14, background:"rgba(0,0,0,.18)" }} />
+                    {i.mime && <div className="pn-small pn-muted" style={{ marginTop: 8 }}>mime: {i.mime}</div>}
+                  </div>
+                )}
+                {i.mediaUrl && i.kind === "note" && i.mime && (
+                  <div style={{ marginTop: 10 }}>
+                    <a className="pn-btn" href={i.mediaUrl} target="_blank" rel="noreferrer">Open attached file</a>
+                    <div className="pn-small pn-muted" style={{ marginTop: 8 }}>mime: {i.mime}</div>
+                  </div>
+                )}
 
                 {!i.approvedCategory && (
                   <div style={{ marginTop: 10 }}>
