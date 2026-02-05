@@ -48,6 +48,7 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
   useEffect(() => {
     if (categoryTouched) return;
     if (!category || category === "inbox") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (topSuggestion) setCategory(topSuggestion);
     }
   }, [topSuggestion, categoryTouched, category]);
@@ -81,7 +82,7 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
   }
 
   function stop(silent = false) {
-    try { recRef.current?.stop(); } catch {}
+    try { recRef.current?.stop(); } catch { /* ignore */ }
     recRef.current = null;
 
     if (streamRef.current) {
@@ -100,7 +101,7 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
     setPendingBlob(undefined);
     setPendingDataUrl(undefined);
     if (previewUrl && previewUrl.startsWith("blob:")) {
-      try { URL.revokeObjectURL(previewUrl); } catch {}
+      try { URL.revokeObjectURL(previewUrl); } catch { /* ignore */ }
     }
     setPreviewUrl(undefined);
     stop(true);

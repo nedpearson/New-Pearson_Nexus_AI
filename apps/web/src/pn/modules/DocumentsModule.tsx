@@ -43,7 +43,7 @@ function useResolvedMediaUrl(mediaUrl?: string) {
     return () => {
       active = false;
       if (objectUrlToRevoke) {
-        try { URL.revokeObjectURL(objectUrlToRevoke); } catch {}
+        try { URL.revokeObjectURL(objectUrlToRevoke); } catch { /* ignore */ }
       }
     };
   }, [mediaUrl]);
