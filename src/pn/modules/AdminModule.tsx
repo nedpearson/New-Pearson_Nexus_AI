@@ -4,6 +4,7 @@ import { Button, Card, Pill } from "../components/kit";
 import { saveData, saveLayout } from "../utils/store";
 import type { LayoutState } from "../utils/store";
 import { MODULES } from "../registry";
+import type { ModuleItem } from "../types";
 
 function move<T>(arr: T[], from: number, to: number) {
   const copy = [...arr];
@@ -17,15 +18,17 @@ export function AdminModule(props: {
   setData: (n: AppData) => void;
   layout: LayoutState;
   setLayout: (n: LayoutState) => void;
+  scope?: string;
+  modules?: ModuleItem[];
 }) {
-  const moduleMap = useMemo(() => new Map(MODULES.map(m => [m.key, m])), []);
+  const moduleMap = useMemo(() => new Map((props.modules || MODULES).map(m => [m.key, m])), [props.modules]);
   const [dragging, setDragging] = useState<string|undefined>(undefined);
   const dragFrom = useRef<number>(-1);
 
   function setTier(t: "Free"|"Plus"|"Pro") {
     const next = { ...props.layout, userTier: t };
     props.setLayout(next);
-    saveLayout(next);
+    saveLayout(next, props.scope || "personal");
   }
 
   function addCategory() {
@@ -33,13 +36,13 @@ export function AdminModule(props: {
     const nextCat: Category = { key, label: "New Category", color: "cyan" };
     const next = { ...props.data, categories: [...props.data.categories, nextCat] };
     props.setData(next);
-    saveData(next);
+    saveData(next, props.scope || "personal");
   }
 
   function updateCategory(key: string, patch: Partial<Category>) {
     const next = { ...props.data, categories: props.data.categories.map(c => c.key === key ? { ...c, ...patch } : c) };
     props.setData(next);
-    saveData(next);
+    saveData(next, props.scope || "personal");
   }
 
   function onDragStart(idx: number, id: string) {
@@ -53,7 +56,7 @@ export function AdminModule(props: {
     const nextOrder = move(props.layout.desktopOrder, fromIdx, toIdx);
     const next = { ...props.layout, desktopOrder: nextOrder };
     props.setLayout(next);
-    saveLayout(next);
+    saveLayout(next, props.scope || "personal");
     dragFrom.current = -1;
     setDragging(undefined);
   }
@@ -64,7 +67,7 @@ export function AdminModule(props: {
     const nextOrder = move(props.layout.mobileOrder, fromIdx, toIdx);
     const next = { ...props.layout, mobileOrder: nextOrder };
     props.setLayout(next);
-    saveLayout(next);
+    saveLayout(next, props.scope || "personal");
     dragFrom.current = -1;
     setDragging(undefined);
   }
@@ -83,7 +86,8 @@ export function AdminModule(props: {
         <Card title="Desktop module order" subtitle="Drag rows to reorder the sidebar.">
           <div className="pn-list">
             {props.layout.desktopOrder.map((k, idx) => {
-              const m = moduleMap.get(k)!;
+              const m = moduleMap.get(k);
+              if (!m) return null;
               return (
                 <div
                   key={k}
@@ -107,7 +111,8 @@ export function AdminModule(props: {
         <Card title="Mobile tab order" subtitle="Drag rows to reorder bottom tabs (first 5 show).">
           <div className="pn-list">
             {props.layout.mobileOrder.map((k, idx) => {
-              const m = moduleMap.get(k)!;
+              const m = moduleMap.get(k);
+              if (!m) return null;
               return (
                 <div
                   key={k}

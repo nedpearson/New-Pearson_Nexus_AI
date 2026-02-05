@@ -6,6 +6,10 @@ import { loadData, loadLayout, saveData, saveLayout } from "./utils/store";
 import type { LayoutState } from "./utils/store";
 import { Brand } from "./components/Brand";
 import { Button, Card, Pill } from "./components/kit";
+import { BUSINESS_DEFAULT_DESKTOP_ORDER, BUSINESS_DEFAULT_MOBILE_ORDER, BUSINESS_MODULES } from "../biz/registry";
+import { BusinessDashboardModule } from "../biz/modules/BusinessDashboardModule";
+import { PlaceholderModule } from "../biz/modules/PlaceholderModule";
+import { GuidesModule } from "../biz/modules/GuidesModule";
 
 import { DashboardModule } from "./modules/DashboardModule";
 import { DocumentsModule } from "./modules/DocumentsModule";
@@ -22,10 +26,26 @@ function dotClass(accent: ModuleItem["accent"]) {
 }
 
 export function AppShell() {
+  type Mode = "personal" | "business";
+  const [mode, setMode] = useState<Mode>(() => {
+    if (typeof window === "undefined") return "personal";
+    return localStorage.getItem("pnx.mode") === "business" ? "business" : "personal";
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("pnx.mode", mode);
+  }, [mode]);
+
+  const scope = mode; // namespace for localStorage (layout + data)
+  const activeModules = mode === "business" ? BUSINESS_MODULES : MODULES;
+  const defaultDesktopOrder = mode === "business" ? BUSINESS_DEFAULT_DESKTOP_ORDER : DEFAULT_DESKTOP_ORDER;
+  const defaultMobileOrder = mode === "business" ? BUSINESS_DEFAULT_MOBILE_ORDER : DEFAULT_MOBILE_ORDER;
+
   const fallbackLayout: LayoutState = {
     active: "dashboard",
-    desktopOrder: DEFAULT_DESKTOP_ORDER,
-    mobileOrder: DEFAULT_MOBILE_ORDER,
+    desktopOrder: defaultDesktopOrder,
+    mobileOrder: defaultMobileOrder,
     userTier: "Pro",
   };
 
@@ -40,12 +60,12 @@ export function AppShell() {
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
 
   useEffect(() => {
-    setLayout(loadLayout(fallbackLayout));
-    setData(loadData(SAMPLE_DATA));
-  }, []);
+    setLayout(loadLayout(fallbackLayout, scope));
+    setData(loadData(SAMPLE_DATA, scope));
+  }, [scope]);
 
-  useEffect(() => { saveLayout(layout); }, [layout]);
-  useEffect(() => { saveData(data); }, [data]);
+  useEffect(() => { saveLayout(layout, scope); }, [layout, scope]);
+  useEffect(() => { saveData(data, scope); }, [data, scope]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -120,9 +140,9 @@ export function AppShell() {
     }
   }
 
-  const byKey = useMemo(() => new Map(MODULES.map(m => [m.key, m])), []);
-  const desktopItems = layout.desktopOrder.map(k => byKey.get(k)!).filter(Boolean);
-  const mobileItems = layout.mobileOrder.map(k => byKey.get(k)!).filter(Boolean);
+  const byKey = useMemo(() => new Map(activeModules.map(m => [m.key, m])), [activeModules]);
+  const desktopItems = layout.desktopOrder.map((k) => byKey.get(k)).filter(Boolean) as ModuleItem[];
+  const mobileItems = layout.mobileOrder.map((k) => byKey.get(k)).filter(Boolean) as ModuleItem[];
 
   function setActive(k: ModuleKey) {
     setLayout(prev => ({ ...prev, active: k }));
@@ -134,22 +154,37 @@ export function AppShell() {
 
   const header = useMemo(() => {
     switch (layout.active) {
-      case "dashboard": return { t: "Home", s: "Tiles, shortcuts, and what’s next." };
+      case "dashboard": return mode === "business"
+        ? { t: "Business", s: "Clients, invoices, projects — simplified." }
+        : { t: "Home", s: "Tiles, shortcuts, and what’s next." };
       case "documents": return { t: "Capture", s: "Voice/video/notes — approve the category. It learns." };
       case "finances":  return { t: "Money", s: "Bills + expenses + quick pay links in one place." };
       case "legal":     return { t: "Legal", s: "Personal, divorce, custody — organized and easy." };
+      case "clients":   return { t: "Clients", s: "Contacts, notes, status." };
+      case "invoices":  return { t: "Invoices", s: "Create, send, track, export." };
+      case "projects":  return { t: "Projects", s: "Work items + deliverables." };
+      case "reports":   return { t: "Reports", s: "KPIs + summaries." };
+      case "guides":    return { t: "Guides", s: "Drill‑down docs & how‑tos." };
       case "admin":     return { t: "Admin", s: "Tier + drag/drop tab order + categories." };
       default:          return { t: "PearsonNexusAI", s: "Prototype" };
     }
-  }, [layout.active]);
+  }, [layout.active, mode]);
 
   const content = (
     <>
-      {layout.active === "dashboard" && <DashboardModule data={data} go={setActive} userTier={layout.userTier} />}
+      {mode === "personal" && layout.active === "dashboard" && <DashboardModule data={data} go={setActive} userTier={layout.userTier} />}
+      {mode === "business" && layout.active === "dashboard" && <BusinessDashboardModule go={setActive} />}
       {layout.active === "documents" && <DocumentsModule data={data} setData={setData} />}
       {layout.active === "finances"  && <FinancesModule data={data} />}
       {layout.active === "legal"     && <LegalModule data={data} setData={setData} />}
-      {layout.active === "admin"     && <AdminModule data={data} setData={setData} layout={layout} setLayout={setLayout} />}
+
+      {layout.active === "clients"   && <PlaceholderModule title="Clients" subtitle="Contacts, notes, status (prototype)" />}
+      {layout.active === "invoices"  && <PlaceholderModule title="Invoices" subtitle="Create, send, track, export (prototype)" />}
+      {layout.active === "projects"  && <PlaceholderModule title="Projects" subtitle="Work items + deliverables (prototype)" />}
+      {layout.active === "reports"   && <PlaceholderModule title="Reports" subtitle="KPIs + summaries (prototype)" />}
+      {layout.active === "guides"    && <GuidesModule />}
+
+      {layout.active === "admin"     && <AdminModule data={data} setData={setData} layout={layout} setLayout={setLayout} scope={scope} modules={activeModules} />}
     </>
   );
 
@@ -213,6 +248,45 @@ export function AppShell() {
                   <div className="pn-small pn-muted">{header.s}</div>
                 </div>
                 <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      border: "1px solid rgba(255,255,255,.18)",
+                      background: "rgba(255,255,255,.06)",
+                      borderRadius: 999,
+                      overflow: "hidden",
+                    }}
+                    title="Switch between Personal and Business"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setMode("personal")}
+                      style={{
+                        padding: "8px 10px",
+                        border: "none",
+                        background: mode === "personal" ? "rgba(255,255,255,.18)" : "transparent",
+                        color: "rgba(238,242,255,.92)",
+                        fontWeight: 850,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Personal
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMode("business")}
+                      style={{
+                        padding: "8px 10px",
+                        border: "none",
+                        background: mode === "business" ? "rgba(255,255,255,.18)" : "transparent",
+                        color: "rgba(238,242,255,.92)",
+                        fontWeight: 850,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Business
+                    </button>
+                  </div>
                   <Pill>{layout.userTier}</Pill>
                   <Button
                     onClick={doInstall}

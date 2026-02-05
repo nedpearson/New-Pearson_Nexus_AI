@@ -1,19 +1,24 @@
 import type { AppData, Category, LearningRule } from "../data/model";
+import type { ModuleKey, Tier } from "../types";
 
-const DATA_KEY = "pnx.data.v1";
-const LAYOUT_KEY = "pnx.layout.v1";
+function dataKey(scope: string) {
+  return `pnx.data.v1.${scope}`;
+}
+function layoutKey(scope: string) {
+  return `pnx.layout.v1.${scope}`;
+}
 
 export type LayoutState = {
-  active: "dashboard" | "documents" | "finances" | "legal" | "admin";
-  desktopOrder: ("dashboard" | "documents" | "finances" | "legal" | "admin")[];
-  mobileOrder: ("dashboard" | "documents" | "finances" | "legal" | "admin")[];
-  userTier: "Free" | "Plus" | "Pro";
+  active: ModuleKey;
+  desktopOrder: ModuleKey[];
+  mobileOrder: ModuleKey[];
+  userTier: Tier;
 };
 
-export function loadData(fallback: AppData): AppData {
+export function loadData(fallback: AppData, scope = "personal"): AppData {
   if (typeof window === "undefined") return fallback;
   try {
-    const raw = localStorage.getItem(DATA_KEY);
+    const raw = localStorage.getItem(dataKey(scope));
     if (!raw) return fallback;
     const parsed = JSON.parse(raw) as AppData;
     return { ...fallback, ...parsed };
@@ -22,15 +27,15 @@ export function loadData(fallback: AppData): AppData {
   }
 }
 
-export function saveData(next: AppData) {
+export function saveData(next: AppData, scope = "personal") {
   if (typeof window === "undefined") return;
-  localStorage.setItem(DATA_KEY, JSON.stringify(next));
+  localStorage.setItem(dataKey(scope), JSON.stringify(next));
 }
 
-export function loadLayout(fallback: LayoutState): LayoutState {
+export function loadLayout(fallback: LayoutState, scope = "personal"): LayoutState {
   if (typeof window === "undefined") return fallback;
   try {
-    const raw = localStorage.getItem(LAYOUT_KEY);
+    const raw = localStorage.getItem(layoutKey(scope));
     if (!raw) return fallback;
     const parsed = JSON.parse(raw) as LayoutState;
     return { ...fallback, ...parsed };
@@ -39,9 +44,9 @@ export function loadLayout(fallback: LayoutState): LayoutState {
   }
 }
 
-export function saveLayout(next: LayoutState) {
+export function saveLayout(next: LayoutState, scope = "personal") {
   if (typeof window === "undefined") return;
-  localStorage.setItem(LAYOUT_KEY, JSON.stringify(next));
+  localStorage.setItem(layoutKey(scope), JSON.stringify(next));
 }
 
 function tokenize(s: string): string[] {
