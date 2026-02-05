@@ -194,6 +194,13 @@ export function AppShell() {
       .filter(Boolean) as ModuleItem[];
   }, [layout.desktopOrder, enabled, byKey]);
 
+  const mobileItems = useMemo(() => {
+    return layout.mobileOrder
+      .filter((k) => isEnabled(k))
+      .map((k) => byKey.get(k))
+      .filter(Boolean) as ModuleItem[];
+  }, [layout.mobileOrder, enabled, byKey]);
+
   const addableItems = useMemo(() => {
     const have = new Set(layout.desktopOrder);
     return extraModules.filter((m) => !have.has(m.key));
