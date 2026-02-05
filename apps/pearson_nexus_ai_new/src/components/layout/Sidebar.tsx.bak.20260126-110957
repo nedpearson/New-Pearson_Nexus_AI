@@ -1,0 +1,62 @@
+import React from "react";
+import { LayoutGrid, Camera, FileText, DollarSign, Scale, Shield, Settings } from "lucide-react";
+
+function NavItem({
+  href, icon, label, tone
+}: {
+  href: string;
+  icon: React.ReactNode;
+  label: string;
+  tone: "blue" | "amber" | "mint";
+}) {
+  const active = typeof window !== "undefined" && window.location.pathname === href;
+  const ring =
+    tone === "blue" ? "ring-[#6AA8FF]/60" :
+    tone === "amber" ? "ring-[#F4A44D]/60" :
+    "ring-[#5CFFD0]/50";
+
+  return (
+    <a
+      href={href}
+      className={[
+        "group w-full h-[64px] rounded-2xl glass flex flex-col items-center justify-center gap-1 transition",
+        "hover:bg-white/7",
+        active ? `ring-1 ${ring}` : "ring-1 ring-white/10"
+      ].join(" ")}
+      title={label}
+    >
+      <div className="text-white/80">{icon}</div>
+      <div className="text-[10px] font-black text-white/70">{label}</div>
+    </a>
+  );
+}
+
+export function Sidebar() {
+  return (
+    <aside className="fixed left-0 top-0 bottom-0 w-[92px] z-40 hidden md:block">
+      <div className="h-full p-4">
+        <div className="glass rounded-[28px] h-full px-3 py-4 flex flex-col items-center gap-4">
+          <a href="/" className="w-full grid place-items-center">
+            <img src="/logo.png" className="h-12 w-12 rounded-2xl border border-white/10 bg-white/5" alt="PearsonNexusAI" />
+          </a>
+
+          <div className="w-full space-y-3 mt-1">
+            <NavItem href="/" icon={<LayoutGrid className="h-5 w-5" />} label="Dashboard" tone="blue" />
+            <NavItem href="/capture" icon={<Camera className="h-5 w-5" />} label="Capture" tone="mint" />
+            <NavItem href="/documents" icon={<FileText className="h-5 w-5" />} label="Docs" tone="blue" />
+            <NavItem href="/finances" icon={<DollarSign className="h-5 w-5" />} label="Money" tone="mint" />
+            <NavItem href="/legal" icon={<Scale className="h-5 w-5" />} label="Legal" tone="amber" />
+            <NavItem href="/admin" icon={<Settings className="h-5 w-5" />} label="Admin" tone="blue" />
+          </div>
+
+          <div className="mt-auto w-full">
+            <div className="glass rounded-2xl p-3 text-center text-[10px] text-white/60 ring-1 ring-white/10">
+              <div className="font-black text-white/75">Prototype</div>
+              <div className="mt-1">Desktop + Mobile</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  );
+}

@@ -1,0 +1,31 @@
+import React from "react";
+
+export default function Legal() {
+  const tiles = [
+    { title: "Divorce & Custody", note: "Case notes + evidence sets" },
+    { title: "Violations", note: "Log incidents with proof" },
+    { title: "Case Builder", note: "Generate summaries later" },
+    { title: "Templates", note: "Admin can customize later" },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="glass rounded-3xl p-7">
+        <div className="text-3xl font-black">Legal</div>
+        <div className="text-white/60 mt-2">
+          Organize personal legal issues in a calm, guided way.
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {tiles.map((t) => (
+          <div key={t.title} className="glass rounded-3xl p-7 hover:bg-white/7 transition">
+            <div className="text-xl font-extrabold">{t.title}</div>
+            <div className="text-sm text-white/60 mt-1">{t.note}</div>
+            <div className="mt-4 text-sm font-bold text-[#F4A44D]">Open →</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

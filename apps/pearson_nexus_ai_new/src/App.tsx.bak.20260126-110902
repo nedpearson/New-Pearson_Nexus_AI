@@ -1,0 +1,37 @@
+import React, { useEffect, useState } from "react";
+import Dashboard from "@/pages/Dashboard";
+import Capture from "@/pages/Capture";
+import Documents from "@/pages/Documents";
+import Finances from "@/pages/Finances";
+import Legal from "@/pages/Legal";
+import Admin from "@/pages/Admin";
+import "@/styles.css";
+
+function route() {
+  const p = window.location.pathname || "/";
+  if (p === "/") return "/";
+  if (p.startsWith("/capture")) return "/capture";
+  if (p.startsWith("/documents")) return "/documents";
+  if (p.startsWith("/finances")) return "/finances";
+  if (p.startsWith("/legal")) return "/legal";
+  if (p.startsWith("/admin")) return "/admin";
+  return "/";
+}
+
+export default function App() {
+  const [path, setPath] = useState(route());
+
+  useEffect(() => {
+    const onPop = () => setPath(route());
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  if (path === "/") return <Dashboard />;
+  if (path === "/capture") return <Capture />;
+  if (path === "/documents") return <Documents />;
+  if (path === "/finances") return <Finances />;
+  if (path === "/legal") return <Legal />;
+  if (path === "/admin") return <Admin />;
+  return <Dashboard />;
+}

@@ -1,0 +1,29 @@
+import React from "react";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { BottomNav } from "@/components/layout/BottomNav";
+
+export function AppShell({ current, children }: { current: string; children: React.ReactNode }) {
+  return (
+    <div className="pnx-wrap">
+      <div className="pnx-top glass card">
+        <div className="brand">
+          <img src="/logo.png" alt="PearsonNexusAI" />
+          <div>
+            <div className="title">Pearson Nexus AI</div>
+            <div className="sub">Capture → Approve → Organized</div>
+          </div>
+        </div>
+        <div className="pill">Desktop + Mobile Ready</div>
+      </div>
+
+      <div className="pnx-shell">
+        <Sidebar current={current} />
+        <div className="content">
+          {children}
+        </div>
+      </div>
+
+      <BottomNav current={current} />
+    </div>
+  );
+}

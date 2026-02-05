@@ -1,0 +1,51 @@
+import React from "react";
+import { NAV, Route } from "@/components/layout/nav";
+import { store } from "@/state/store";
+
+function go(route: Route) {
+  window.history.pushState({}, "", route);
+  window.dispatchEvent(new Event("popstate"));
+}
+
+export function Sidebar({ current }: { current: string }) {
+  const db = store.snapshot;
+  return (
+    <aside className="sidebar glass">
+      <div className="brand" style={{ padding:"8px 8px 14px" }}>
+        <img src="/logo.png" alt="PearsonNexusAI" />
+        <div className="min-w-0">
+          <div className="title">Pearson Nexus AI</div>
+          <div className="sub">Playful, organized, all-in-one</div>
+        </div>
+      </div>
+
+      <div className="notice" style={{ margin:"0 6px 12px" }}>
+        Welcome, {db.settings.userDisplayName}
+      </div>
+
+      <div className="list">
+        {NAV.map(n => {
+          const active = current === n.route;
+          return (
+            <button
+              key={n.route}
+              onClick={() => go(n.route)}
+              className={"navItem " + (active ? "active" : "")}
+              type="button"
+            >
+              <div className="navIcon">{n.icon}</div>
+              <div style={{ minWidth:0 }}>
+                <div style={{ whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{n.label}</div>
+                <div className="navHint">{n.hint}</div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{ marginTop:"auto", padding:"10px 8px 6px" }}>
+        <div className="pill">Tip: Approve categories so it learns</div>
+      </div>
+    </aside>
+  );
+}
