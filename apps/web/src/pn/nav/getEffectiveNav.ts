@@ -40,7 +40,7 @@ export function getEffectiveNav(args: {
   isAdmin: boolean;
   enabledFeatures?: Record<string, boolean>;
 }): EffectiveNav {
-  const { defaults, prefs, userTier, isAdmin, enabledFeatures } = args;
+  const { defaults, prefs, isAdmin, enabledFeatures } = args;
 
   const hidden = new Set(prefs.hiddenItemIds || []);
   const pinned = new Set(prefs.pinnedItemIds || []);

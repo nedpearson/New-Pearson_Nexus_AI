@@ -14,6 +14,11 @@ export type NavItemDef = {
   path: ModuleKey;
   icon?: string;
   header: HeaderKey;
+  /**
+   * If true, this item exists in defaults but starts hidden.
+   * Users can enable it in Customize Sidebar.
+   */
+  defaultHidden?: boolean;
   /** Optional gate. If omitted, item is available for all tiers/roles. */
   minTier?: Tier;
   /** Optional gate for Admin/owner-only. */

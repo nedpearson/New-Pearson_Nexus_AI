@@ -1,5 +1,5 @@
 import type { LayoutState } from "../utils/store";
-import type { HeaderKey, NavDefaults, SidebarPreferencesV1, ViewKey } from "./nav.types";
+import { isHeaderKey, type HeaderKey, type NavDefaults, type SidebarPreferencesV1, type ViewKey } from "./nav.types";
 
 const PREFS_VERSION = 1 as const;
 
@@ -7,31 +7,44 @@ function prefsKey(view: ViewKey) {
   return `pnx.sidebarPrefs.v${PREFS_VERSION}.${view}`;
 }
 
-export function defaultPrefs(): SidebarPreferencesV1 {
+export function defaultPrefsForDefaults(defaults: NavDefaults): SidebarPreferencesV1 {
+  const hidden = defaults.items.filter((i) => i.defaultHidden).map((i) => i.id);
   return {
     version: PREFS_VERSION,
-    hiddenItemIds: [],
+    hiddenItemIds: hidden,
     orderByHeader: {},
     pinnedItemIds: [],
     ownerMode: false,
   };
 }
 
-function coerce(raw: any): SidebarPreferencesV1 | null {
-  if (!raw || typeof raw !== "object") return null;
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null;
+}
+
+function coerce(raw: unknown): SidebarPreferencesV1 | null {
+  if (!isRecord(raw)) return null;
   if (raw.version !== PREFS_VERSION) return null;
+  const orderByHeader: SidebarPreferencesV1["orderByHeader"] = {};
+  if (isRecord(raw.orderByHeader)) {
+    for (const [k, v] of Object.entries(raw.orderByHeader)) {
+      if (!isHeaderKey(k)) continue;
+      if (!Array.isArray(v)) continue;
+      orderByHeader[k] = v.filter((x): x is string => typeof x === "string");
+    }
+  }
   return {
     version: PREFS_VERSION,
-    hiddenItemIds: Array.isArray(raw.hiddenItemIds) ? raw.hiddenItemIds.filter((x: any) => typeof x === "string") : [],
-    orderByHeader: (raw.orderByHeader && typeof raw.orderByHeader === "object") ? raw.orderByHeader : {},
-    pinnedItemIds: Array.isArray(raw.pinnedItemIds) ? raw.pinnedItemIds.filter((x: any) => typeof x === "string") : [],
-    ownerMode: Boolean(raw.ownerMode),
+    hiddenItemIds: Array.isArray(raw.hiddenItemIds) ? raw.hiddenItemIds.filter((x): x is string => typeof x === "string") : [],
+    orderByHeader,
+    pinnedItemIds: Array.isArray(raw.pinnedItemIds) ? raw.pinnedItemIds.filter((x): x is string => typeof x === "string") : [],
+    ownerMode: raw.ownerMode === true,
   };
 }
 
 /** One-time migration from the legacy LayoutState ordering + enabled flags. */
 export function migrateLegacyLayoutToPrefs(layout: LayoutState, defaults: NavDefaults): SidebarPreferencesV1 {
-  const next = defaultPrefs();
+  const next = defaultPrefsForDefaults(defaults);
 
   // Hide items that were previously disabled in Admin.
   const enabled = layout.enabled || {};
@@ -53,8 +66,8 @@ export function migrateLegacyLayoutToPrefs(layout: LayoutState, defaults: NavDef
   }
   for (const h of Object.keys(byHeader) as HeaderKey[]) {
     byHeader[h] = (byHeader[h] || []).sort((a, b) => {
-      const ia = orderIndex.get(defaults.items.find((x) => x.id === a)?.path as any as string) ?? 9999;
-      const ib = orderIndex.get(defaults.items.find((x) => x.id === b)?.path as any as string) ?? 9999;
+      const ia = orderIndex.get(String(defaults.items.find((x) => x.id === a)?.path ?? "")) ?? 9999;
+      const ib = orderIndex.get(String(defaults.items.find((x) => x.id === b)?.path ?? "")) ?? 9999;
       return ia - ib;
     });
   }
@@ -64,7 +77,7 @@ export function migrateLegacyLayoutToPrefs(layout: LayoutState, defaults: NavDef
 }
 
 export function loadSidebarPrefs(view: ViewKey, layout: LayoutState | undefined, defaults: NavDefaults): SidebarPreferencesV1 {
-  if (typeof window === "undefined") return defaultPrefs();
+  if (typeof window === "undefined") return defaultPrefsForDefaults(defaults);
   try {
     const raw = localStorage.getItem(prefsKey(view));
     if (raw) {
@@ -81,7 +94,7 @@ export function loadSidebarPrefs(view: ViewKey, layout: LayoutState | undefined,
     saveSidebarPrefs(view, migrated);
     return migrated;
   }
-  return defaultPrefs();
+  return defaultPrefsForDefaults(defaults);
 }
 
 export function saveSidebarPrefs(view: ViewKey, prefs: SidebarPreferencesV1) {

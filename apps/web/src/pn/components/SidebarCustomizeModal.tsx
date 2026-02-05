@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useState } from "react";
 import { Button, Card, Pill } from "./kit";
 import type { NavDefaults, SidebarPreferencesV1, HeaderKey, NavItemDef, ViewKey } from "../nav/nav.types";
 import { HEADER_ORDER } from "../nav/nav.types";
-import { clearSidebarPrefs, defaultPrefs } from "../nav/sidebarPrefs";
+import { clearSidebarPrefs, defaultPrefsForDefaults } from "../nav/sidebarPrefs";
 
 function headerLabel(h: HeaderKey) {
   return h === "home" ? "Home"
@@ -85,7 +85,7 @@ export function SidebarCustomizeModal(props: {
 
   function restoreDefaultsForView() {
     clearSidebarPrefs(props.view);
-    props.setPrefs(defaultPrefs());
+    props.setPrefs(defaultPrefsForDefaults(props.defaults));
   }
 
   return (

@@ -5,7 +5,7 @@ import { SAMPLE_DATA } from "./data/sample";
 import { loadData, loadLayout, saveData, saveLayout } from "./utils/store";
 import type { LayoutState } from "./utils/store";
 import { Brand } from "./components/Brand";
-import { Button, Card, Pill } from "./components/kit";
+import { Button, Pill } from "./components/kit";
 import { BusinessDashboardModule } from "../biz/modules/BusinessDashboardModule";
 import { GuidesModule } from "../biz/modules/GuidesModule";
 import { PlaceholderModule } from "../biz/modules/PlaceholderModule";
@@ -13,7 +13,7 @@ import { SidebarCustomizeModal } from "./components/SidebarCustomizeModal";
 import { getDefaults } from "./nav/nav.defaults";
 import { getEffectiveNav, validateDefaults } from "./nav/getEffectiveNav";
 import type { SidebarPreferencesV1, ViewKey } from "./nav/nav.types";
-import { defaultPrefs, loadSidebarPrefs, saveSidebarPrefs } from "./nav/sidebarPrefs";
+import { defaultPrefsForDefaults, loadSidebarPrefs, saveSidebarPrefs } from "./nav/sidebarPrefs";
 
 import { DashboardModule } from "./modules/DashboardModule";
 import { DocumentsModule } from "./modules/DocumentsModule";
@@ -82,7 +82,7 @@ export function AppShell() {
   const [copied, setCopied] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [customizeOpen, setCustomizeOpen] = useState(false);
-  const [sidebarPrefs, setSidebarPrefs] = useState<SidebarPreferencesV1>(() => defaultPrefs());
+  const [sidebarPrefs, setSidebarPrefs] = useState<SidebarPreferencesV1>(() => defaultPrefsForDefaults(navDefaults));
 
   useEffect(() => {
     const loadedLayout = loadLayout(fallbackLayout, scope);
