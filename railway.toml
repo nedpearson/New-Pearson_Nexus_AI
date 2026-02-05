@@ -1,0 +1,17 @@
+[build]
+# Guardrail: always build using the repo-root Dockerfile
+builder = "DOCKERFILE"
+
+# Guardrail: only trigger deploys when the deployed app (apps/web) changes
+watchPatterns = [
+  "apps/web/**",
+  "Dockerfile",
+  "package.json",
+  "package-lock.json",
+  "railway.toml"
+]
+
+[deploy]
+healthcheckPath = "/"
+healthcheckTimeout = 300
+restartPolicyType = "ALWAYS"

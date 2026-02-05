@@ -26,4 +26,4 @@ dist-ssr
 
 # Keep generic SW files ignored, but allow our explicit public kill-switch SW.
 sw.js
-!public/sw.js
+!apps/**/public/sw.js
