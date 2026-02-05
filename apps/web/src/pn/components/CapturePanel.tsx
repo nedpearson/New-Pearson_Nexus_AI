@@ -58,6 +58,7 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
   useEffect(() => {
     if (categoryTouched) return;
     if (!category || category === "inbox") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (topSuggestion) setCategory(topSuggestion);
     }
   }, [topSuggestion, categoryTouched, category]);
@@ -153,6 +154,7 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
 
     const maxBytes = 2_000_000; // ~2MB
     const nextItems: AppData["library"] = [];
+    const errs: string[] = [];
     let nextLearning = props.data.learning;
 
     for (let i = 0; i < files.length; i++) {
@@ -191,7 +193,7 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
 
         if (category) nextLearning = learnCorrection(nextLearning, t, text || undefined, category);
       } catch (e) {
-        setUploadErrors((prev) => [...prev, `${f.name}: ${e instanceof Error ? e.message : String(e)}`]);
+        errs.push(`${f.name}: ${e instanceof Error ? e.message : String(e)}`);
       }
     }
 
@@ -203,9 +205,10 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
       });
     }
 
+    setUploadErrors(errs);
     setUploadBusy(false);
     setUploadDone(true);
-    setUploadStatus(uploadErrors.length ? "Done (with warnings)" : "Done");
+    setUploadStatus(errs.length ? "Done (with warnings)" : "Done");
   }
 
   async function save(approvedCategory?: string) {
@@ -278,46 +281,13 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
     setNewCategoryLabel("");
   }
 
-  async function onPickFile(file: File | null) {
-    if (!file) return;
-    stop(true);
-    setRecState("idle");
-    setFileName(file.name);
-    setMime(file.type || "application/octet-stream");
-
-    // Read as data URL for persistence in localStorage (simple prototype).
-    // Guardrail: if file is huge, store the Blob in IndexedDB (persisted).
-    const maxBytes = 2_000_000; // ~2MB
-    if (file.size > maxBytes) {
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
-      setPendingBlob(file);
-      setPendingDataUrl(undefined);
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const url = typeof reader.result === "string" ? reader.result : "";
-      if (url) {
-        setPreviewUrl(url);
-        setPendingDataUrl(url);
-        setPendingBlob(undefined);
-      }
-    };
-    reader.readAsDataURL(file);
-  }
-
   async function onPickFiles(fileList: FileList | null) {
     const files = fileList ? Array.from(fileList) : [];
     if (!files.length) return;
-    // If user picked a folder or multiple files, ingest directly into the library with progress.
-    if (files.length > 1) {
-      await ingestMany(files);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      if (folderInputRef.current) folderInputRef.current.value = "";
-      return;
-    }
-    await onPickFile(files[0]);
+    // Ingest selections directly into the library with progress.
+    await ingestMany(files);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (folderInputRef.current) folderInputRef.current.value = "";
   }
 
   useEffect(() => {
@@ -439,8 +409,8 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
           <Button
             variant="primary"
             onClick={() => { void save(category); }}
-            disabled={mode === "file" && !previewUrl}
-            title={mode === "file" && !previewUrl ? "Upload a file first" : "Save with selected category"}
+            disabled={mode === "file"}
+            title={mode === "file" ? "Files upload immediately; no Save needed" : "Save with selected category"}
           >
             Save
           </Button>

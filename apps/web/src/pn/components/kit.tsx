@@ -24,7 +24,7 @@ export function Pill(props: { children: React.ReactNode }) {
 export function Button(props: { children: React.ReactNode; onClick?: () => void; variant?: "ghost"|"primary"; disabled?: boolean; title?: string; style?: React.CSSProperties }) {
   const cls = props.variant === "primary" ? "pn-btn pn-btnPrimary" : "pn-btn";
   return (
-    <button className={cls} onClick={props.onClick} disabled={props.disabled} title={props.title} style={props.style}>
+    <button type="button" className={cls} onClick={props.onClick} disabled={props.disabled} title={props.title} style={props.style}>
       {props.children}
     </button>
   );
