@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "categories": [
+    { "id": "documents", "name": "Documents", "group": "person", "folderPath": "person/documents", "tags": ["docs"], "sensitivity": "normal", "retentionPolicy": "standard" },
+    { "id": "violations", "name": "Violations", "group": "person", "folderPath": "person/violations", "tags": ["evidence"], "sensitivity": "high", "retentionPolicy": "legal_hold" },
+    { "id": "legal", "name": "Legal", "group": "person", "folderPath": "person/legal", "tags": ["legal"], "sensitivity": "high", "retentionPolicy": "legal_hold" },
+    { "id": "money", "name": "Money", "group": "person", "folderPath": "person/money", "tags": ["finance"], "sensitivity": "normal", "retentionPolicy": "standard" },
+    { "id": "utilities", "name": "Utilities", "group": "person", "folderPath": "person/money/utilities", "tags": ["utilities"], "sensitivity": "normal", "retentionPolicy": "standard" },
+    { "id": "invoices", "name": "Invoices", "group": "business", "folderPath": "business/money/invoices", "tags": ["invoice"], "sensitivity": "normal", "retentionPolicy": "standard" },
+    { "id": "receipts", "name": "Receipts", "group": "business", "folderPath": "business/money/receipts", "tags": ["receipt"], "sensitivity": "normal", "retentionPolicy": "standard" },
+    { "id": "needs_review", "name": "Needs Review", "group": "person", "folderPath": "needs_review", "tags": ["review"], "sensitivity": "normal", "retentionPolicy": "standard" }
+  ]
+}
+

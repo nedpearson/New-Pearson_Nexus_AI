@@ -20,6 +20,7 @@ RUN npm ci --omit=dev
 # Copy build output + server script
 COPY --from=build /app/apps/web/dist ./apps/web/dist
 COPY apps/web/scripts ./apps/web/scripts
+COPY apps/web/server ./apps/web/server
 
 # Railway injects PORT; fall back to 8080 for local runs
 EXPOSE 8080

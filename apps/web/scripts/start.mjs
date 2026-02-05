@@ -1,7 +1,9 @@
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
-import fs from "fs/promises";
+import Busboy from "busboy";
+import crypto from "crypto";
+import { ingestAudioBytes, ingestDocumentBytes, ingestTextOnly } from "../server/ingestion/ingest.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -19,41 +21,19 @@ function requireAuth(req) {
   return { ok: false, reason: "unauthorized" };
 }
 
-function categorizeCapture(capture) {
-  const t = String(capture?.type || "document");
-  const notes = String(capture?.notes || "").toLowerCase();
-  const rules = [];
-
-  let category_group = "person";
-  if (notes.includes("invoice") || notes.includes("client") || notes.includes("project") || notes.includes("vendor")) {
-    category_group = "business";
-    rules.push("keyword:business_terms");
-  } else {
-    rules.push("default:person");
-  }
-
-  let category = t === "violation" ? "violations" : "documents";
-  if (notes.includes("court") || notes.includes("custody") || notes.includes("divorce") || notes.includes("attorney")) {
-    category = "legal";
-    rules.push("keyword:legal_terms");
-  }
-  if (notes.includes("bill") || notes.includes("due") || notes.includes("payment") || notes.includes("receipt")) {
-    category = "money";
-    rules.push("keyword:money_terms");
-  }
-
-  const confidence = rules.includes("keyword:legal_terms") || rules.includes("keyword:money_terms") || rules.includes("keyword:business_terms")
-    ? 0.82
-    : 0.6;
-
-  return { category_group, category, confidence, rules_applied: rules };
+function correlationId() {
+  return crypto.randomUUID ? crypto.randomUUID() : ("cid_" + Math.random().toString(16).slice(2, 10) + "_" + Date.now().toString(16));
 }
 
-async function appendJsonl(filePath, obj) {
-  const dir = path.dirname(filePath);
-  await fs.mkdir(dir, { recursive: true });
-  await fs.appendFile(filePath, JSON.stringify(obj) + "\n", "utf8");
+function noStore(res) {
+  res.setHeader("Cache-Control", "no-store, max-age=0");
+  res.setHeader("Pragma", "no-cache");
 }
+
+app.get("/health", (_req, res) => {
+  res.setHeader("content-type", "application/json");
+  return res.status(200).send(JSON.stringify({ ok: true }));
+});
 
 app.post("/api/sync", async (req, res) => {
   const auth = requireAuth(req);
@@ -65,15 +45,19 @@ app.post("/api/sync", async (req, res) => {
   const out = [];
   for (const it of items) {
     try {
-      const cat = categorizeCapture(it);
-      const record = {
-        id: String(it.id || ""),
-        receivedAt: Date.now(),
-        capture: it,
-        categorization: cat,
-      };
-      await appendJsonl(path.join(process.cwd(), "data", "synced_captures.jsonl"), record);
-      out.push({ id: record.id, ok: true });
+      const cid = correlationId();
+      const notes = String(it?.notes || "");
+      const transcript = String(it?.transcript || "");
+      const text = [notes, transcript].filter(Boolean).join("\n").trim();
+      const r = await ingestTextOnly({
+        id: String(it?.id || cid),
+        correlationId: cid,
+        source: String(it?.source || "sync"),
+        captureType: String(it?.type || "text"),
+        filename: it?.files?.[0]?.name,
+        text,
+      });
+      out.push({ id: String(it?.id || ""), ok: true, hash: r.hash, status: r.route?.categoryId === "needs_review" ? "NEEDS_REVIEW" : "ROUTED" });
     } catch (e) {
       out.push({ id: String(it?.id || ""), ok: false, error: e instanceof Error ? e.message : String(e) });
     }
@@ -81,12 +65,74 @@ app.post("/api/sync", async (req, res) => {
   return res.json({ results: out });
 });
 
-app.use(express.static(distPath));
+function parseSingleFile(req) {
+  return new Promise((resolve, reject) => {
+    const bb = Busboy({ headers: req.headers, limits: { files: 1, fileSize: 25 * 1024 * 1024 } });
+    let fileBytes = [];
+    let fileInfo = null;
+    let fields = {};
+
+    bb.on("field", (name, val) => { fields[name] = val; });
+    bb.on("file", (_name, stream, info) => {
+      fileInfo = info;
+      stream.on("data", (d) => fileBytes.push(d));
+      stream.on("limit", () => reject(new Error("file too large")));
+      stream.on("error", reject);
+    });
+    bb.on("error", reject);
+    bb.on("finish", () => {
+      const buf = Buffer.concat(fileBytes);
+      resolve({ bytes: new Uint8Array(buf), fileInfo, fields });
+    });
+    req.pipe(bb);
+  });
+}
+
+app.post("/upload/mobile", async (req, res) => {
+  const cid = correlationId();
+  try {
+    const { bytes, fileInfo, fields } = await parseSingleFile(req);
+    const mimeType = fileInfo?.mimeType || "application/octet-stream";
+    const filename = fileInfo?.filename || "mobile_upload";
+    const captureType = fields.captureType || "document";
+    const r = await ingestDocumentBytes({ id: fields.id, correlationId: cid, source: "mobile", captureType, filename, mimeType, bytes });
+    return res.json({ ok: true, correlationId: cid, hash: r.hash, routing: r.route, recordId: r.recordId });
+  } catch (e) {
+    return res.status(400).json({ ok: false, correlationId: cid, error: e instanceof Error ? e.message : String(e) });
+  }
+});
+
+app.post("/upload/voice", async (req, res) => {
+  const cid = correlationId();
+  try {
+    const { bytes, fileInfo, fields } = await parseSingleFile(req);
+    const mimeType = fileInfo?.mimeType || "application/octet-stream";
+    const filename = fileInfo?.filename || "voice_upload";
+    const r = await ingestAudioBytes({ id: fields.id, correlationId: cid, source: "voice", filename, mimeType, bytes });
+    return res.json({ ok: true, correlationId: cid, hash: r.hash, routing: r.route, recordId: r.recordId });
+  } catch (e) {
+    return res.status(400).json({ ok: false, correlationId: cid, error: e instanceof Error ? e.message : String(e) });
+  }
+});
+
+app.use(express.static(distPath, {
+  setHeaders(res, filePath) {
+    const p = String(filePath || "");
+    if (p.endsWith("index.html") || p.endsWith("sw.js") || p.endsWith("manifest.json")) {
+      noStore(res);
+      return;
+    }
+    if (p.includes(`${path.sep}assets${path.sep}`)) {
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    }
+  },
+}));
 
 // Express v5 (path-to-regexp v6+) does not accept "*" as a string route.
-app.get(/.*/, (_, res) =>
-  res.sendFile(path.join(distPath, "index.html"))
-);
+app.get(/.*/, (_req, res) => {
+  noStore(res);
+  return res.sendFile(path.join(distPath, "index.html"));
+});
 
 // Railway injects PORT; fall back to 8080 for local runs (matches Dockerfile convention)
 const port = process.env.PORT || 8080;

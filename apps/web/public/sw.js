@@ -14,11 +14,8 @@ self.addEventListener("install", (event) => {
       try {
         const cache = await caches.open(SHELL);
         await cache.addAll([
-          "/",
-          "/index.html",
           "/manifest.json",
           "/logo.png",
-          "/m",
         ]);
       } catch {
         // ignore (offline during install)
@@ -53,23 +50,24 @@ self.addEventListener("fetch", (event) => {
   // Navigations: try network so updates roll out quickly.
   if (req.mode === "navigate") {
     event.respondWith(
-      fetch(req).catch(async () => (await caches.match("/index.html")) || (await caches.match("/")) || Response.error())
+      (async () => {
+        try {
+          const fresh = await fetch(req);
+          // Keep the latest app shell for offline fallback, but never cache-bust assets (Vite assets are hashed).
+          const cache = await caches.open(SHELL);
+          cache.put("/index.html", fresh.clone()).catch(() => null);
+          return fresh;
+        } catch {
+          return (await caches.match("/index.html")) || Response.error();
+        }
+      })()
     );
     return;
   }
 
-  // Runtime cache hashed Vite assets so the app shell works offline after first visit.
+  // Runtime cache hashed Vite assets so the app works offline after first visit.
   const p = url.pathname || "";
-  const isAsset =
-    p.startsWith("/assets/") ||
-    p.endsWith(".js") ||
-    p.endsWith(".css") ||
-    p.endsWith(".png") ||
-    p.endsWith(".jpg") ||
-    p.endsWith(".jpeg") ||
-    p.endsWith(".svg") ||
-    p.endsWith(".webp") ||
-    p.endsWith(".ico");
+  const isAsset = p.startsWith("/assets/");
 
   if (isAsset) {
     event.respondWith(
