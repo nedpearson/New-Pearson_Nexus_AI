@@ -256,10 +256,28 @@ export function AppShell() {
     }
   }, [layout.active, mode]);
 
+  const dashboardV2Enabled = layout.prefs?.dashboardV2 === true;
+
   const content = (
     <>
-      {mode === "personal" && layout.active === "dashboard" && <DashboardModule data={data} go={setActive} userTier={layout.userTier} />}
-      {mode === "business" && layout.active === "dashboard" && <BusinessDashboardModule go={setActive} />}
+      {mode === "personal" && layout.active === "dashboard" && (
+        <DashboardModule
+          data={data}
+          go={setActive}
+          userTier={layout.userTier}
+          isAdmin={isAdmin}
+          dashboardV2Enabled={dashboardV2Enabled}
+        />
+      )}
+      {mode === "business" && layout.active === "dashboard" && (
+        <BusinessDashboardModule
+          go={setActive}
+          data={data}
+          userTier={layout.userTier}
+          isAdmin={isAdmin}
+          dashboardV2Enabled={dashboardV2Enabled}
+        />
+      )}
       {layout.active === "calendar"  && <CalendarModule data={data} go={setActive} />}
       {layout.active === "documents" && <DocumentsModule data={data} setData={setData} />}
       {layout.active === "finances"  && <FinancesModule data={data} />}

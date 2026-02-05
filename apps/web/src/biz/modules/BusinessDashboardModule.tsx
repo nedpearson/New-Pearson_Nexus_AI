@@ -1,10 +1,29 @@
 import React from "react";
 import { Card, Tile } from "../../pn/components/kit";
 import type { ModuleKey } from "../../pn/types";
-import { MobileAppQRCode } from "../../components/MobileAppQRCode";
 import { SyncButton } from "../../components/SyncButton";
+import type { AppData } from "../../pn/data/model";
+import { DashboardV2 } from "../../features/dashboard/DashboardV2";
 
-export function BusinessDashboardModule(props: { go: (k: ModuleKey) => void }) {
+export function BusinessDashboardModule(props: {
+  go: (k: ModuleKey) => void;
+  data: AppData;
+  userTier: "Free" | "Plus" | "Pro";
+  isAdmin: boolean;
+  dashboardV2Enabled: boolean;
+}) {
+  if (props.dashboardV2Enabled) {
+    return (
+      <DashboardV2
+        view="business"
+        data={props.data}
+        go={props.go}
+        userTier={props.userTier}
+        isAdmin={props.isAdmin}
+      />
+    );
+  }
+
   return (
     <div className="pn-col">
       <Card title="Business Overview" subtitle="Quick shortcuts (prototype).">
@@ -17,14 +36,10 @@ export function BusinessDashboardModule(props: { go: (k: ModuleKey) => void }) {
       </Card>
 
       <Card title="Tip" subtitle="Install to your phone Home Screen for fastest access.">
-        <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
-          <MobileAppQRCode path="/m" size={92} />
-          <div className="pn-small pn-muted" style={{ minWidth: 240 }}>
-            <div style={{ fontWeight: 900, color: "rgba(238,242,255,.92)" }}>Scan to open on mobile.</div>
-            <div>Add to Home Screen to install for offline use.</div>
-            <div style={{ marginTop: 8 }}>
-              <SyncButton compact />
-            </div>
+        <div className="pn-small pn-muted">
+          <div style={{ fontWeight: 900, color: "rgba(238,242,255,.92)" }}>Sync queued captures</div>
+          <div style={{ marginTop: 8 }}>
+            <SyncButton compact />
           </div>
         </div>
       </Card>

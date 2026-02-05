@@ -52,6 +52,15 @@ export function AdminModule(props: {
     saveLayout(next, props.scope || "personal");
   }
 
+  function setPrefDashboardV2(nextValue: boolean) {
+    const next: LayoutState = {
+      ...props.layout,
+      prefs: { ...(props.layout.prefs || {}), dashboardV2: nextValue },
+    };
+    props.setLayout(next);
+    saveLayout(next, props.scope || "personal");
+  }
+
   function addCategory() {
     const key = "cat_" + Math.random().toString(16).slice(2, 8);
     const nextCat: Category = { key, label: "New Category", color: "cyan" };
@@ -113,6 +122,20 @@ export function AdminModule(props: {
               style={{ width: 18, height: 18 }}
               aria-label="Show more drill-downs"
               title="Show more drill-downs"
+            />
+          </label>
+          <label className="pn-item" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <div>
+              <div style={{ fontWeight: 900 }}>Enable Dashboard v2</div>
+              <div className="pn-small pn-muted">Tabs + widgets with drill‑downs. Safe to toggle off (config stays saved).</div>
+            </div>
+            <input
+              type="checkbox"
+              checked={props.layout.prefs?.dashboardV2 === true}
+              onChange={(e) => setPrefDashboardV2(e.target.checked)}
+              style={{ width: 18, height: 18 }}
+              aria-label="Enable Dashboard v2"
+              title="Enable Dashboard v2"
             />
           </label>
           <div className="pn-item" style={{ background: "rgba(0,0,0,.12)" }}>

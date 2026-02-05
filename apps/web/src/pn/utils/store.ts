@@ -20,6 +20,8 @@ export type LayoutState = {
   prefs?: {
     /** Show expanded drill-downs (keeps default UI simple). */
     showMore?: boolean;
+    /** Enable the config-driven Dashboard v2 (tabs + widgets). */
+    dashboardV2?: boolean;
   };
   /**
    * Feature visibility switches (Admin-controlled).

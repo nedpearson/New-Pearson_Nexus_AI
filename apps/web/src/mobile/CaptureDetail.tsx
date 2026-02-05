@@ -19,18 +19,22 @@ export function CaptureDetail(props: {
 }) {
   const [notes, setNotes] = useState("");
   const [transcript, setTranscript] = useState("");
+  const [files, setFiles] = useState<File[]>(() => props.files || []);
   const [listening, setListening] = useState(false);
   const [status, setStatus] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [online, setOnline] = useState<boolean>(() => isOnline());
   const [, setAuthTick] = useState(0);
   const recRef = useRef<SpeechRecognition | null>(null);
+  const camRef = useRef<HTMLInputElement | null>(null);
+  const uploadRef = useRef<HTMLInputElement | null>(null);
 
   const authed = Boolean(getSyncToken());
   const canSpeech = useMemo(() => {
     if (typeof window === "undefined") return false;
     return Boolean(getSpeechRecognitionCtor());
   }, []);
+  const [previewUrl, setPreviewUrl] = useState<string>("");
 
   useEffect(() => {
     const onOnline = () => setOnline(true);
@@ -51,8 +55,26 @@ export function CaptureDetail(props: {
     setStatus("");
     setNotes("");
     setTranscript("");
+    setFiles(props.files || []);
     setListening(false);
-  }, [props.open, props.type]);
+  }, [props.open, props.type, props.files]);
+
+  useEffect(() => {
+    let urlToRevoke: string | undefined;
+    const firstImg = files.find((f) => String(f.type || "").startsWith("image/"));
+    if (firstImg) {
+      const u = URL.createObjectURL(firstImg);
+      urlToRevoke = u;
+      setPreviewUrl(u);
+    } else {
+      setPreviewUrl("");
+    }
+    return () => {
+      if (urlToRevoke) {
+        try { URL.revokeObjectURL(urlToRevoke); } catch { /* ignore */ }
+      }
+    };
+  }, [files]);
 
   function appendText(t: string) {
     const next = (notes ? notes.trimEnd() + "\n" : "") + t.trim();
@@ -108,7 +130,7 @@ export function CaptureDetail(props: {
     setBusy(true);
     setStatus("");
     try {
-      const filesMeta = props.files?.map((f) => ({ name: f.name, type: f.type, size: f.size, lastModified: f.lastModified }));
+      const filesMeta = files?.map((f) => ({ name: f.name, type: f.type, size: f.size, lastModified: f.lastModified }));
       await enqueueCapture({
         type: props.type,
         notes,
@@ -145,6 +167,15 @@ export function CaptureDetail(props: {
   const hint = props.type === "document" ? "Capture with camera or upload — add notes for context." : "Capture evidence — keep it factual and timestamped.";
   const accentBtn = props.accent === "orange" ? "m-btnOrange" : "m-btnPrimary";
 
+  function onPick(next: FileList | null) {
+    const arr = next ? Array.from(next) : [];
+    if (!arr.length) return;
+    // Keep it simple: replace current selection with newest pick.
+    setFiles(arr);
+    if (camRef.current) camRef.current.value = "";
+    if (uploadRef.current) uploadRef.current.value = "";
+  }
+
   return (
     <div className="m-root" style={{ paddingTop: 14 }}>
       <div className="m-wrap">
@@ -156,11 +187,69 @@ export function CaptureDetail(props: {
         <div className="m-title" style={{ marginTop: 12 }}>{title}</div>
         <div className="m-subtitle">{hint}</div>
 
-        {!!props.files?.length && (
+        <div className="m-panel">
+          <div className="m-chip" style={{ marginBottom: 8, fontWeight: 900, color: "rgba(238,242,255,.76)" }}>Camera</div>
+          <div className="m-row">
+            <button
+              className={["m-btn", accentBtn].join(" ")}
+              type="button"
+              onClick={() => camRef.current?.click()}
+              title="Take a photo"
+            >
+              📷 Take Photo
+            </button>
+            <button
+              className="m-btn"
+              type="button"
+              onClick={() => uploadRef.current?.click()}
+              title="Upload from device"
+            >
+              ⬆️ Upload
+            </button>
+            {!!files.length && (
+              <button className="m-btn" type="button" onClick={() => setFiles([])} title="Remove attachment">
+                ✕ Remove
+              </button>
+            )}
+          </div>
+
+          <input
+            ref={(r) => { camRef.current = r; }}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            style={{ display: "none" }}
+            onChange={(e) => onPick(e.target.files)}
+          />
+          <input
+            ref={(r) => { uploadRef.current = r; }}
+            type="file"
+            accept="image/*,application/pdf,video/*,audio/*"
+            style={{ display: "none" }}
+            onChange={(e) => onPick(e.target.files)}
+          />
+
+          {!!previewUrl && (
+            <div style={{ marginTop: 10 }}>
+              <img
+                src={previewUrl}
+                alt="Captured preview"
+                style={{ width: "100%", borderRadius: 14, border: "1px solid rgba(255,255,255,.12)" }}
+              />
+            </div>
+          )}
+          {!!files.length && !previewUrl && (
+            <div className="m-chip" style={{ marginTop: 10 }}>
+              {files.map((f) => `${f.name} (${Math.round(f.size / 1024)} KB)`).join(" • ")}
+            </div>
+          )}
+        </div>
+
+        {!!files?.length && (
           <div className="m-panel">
             <div className="m-chip" style={{ marginBottom: 6, fontWeight: 900, color: "rgba(238,242,255,.76)" }}>Files</div>
             <div className="m-chip">
-              {props.files.map((f) => `${f.name} (${Math.round(f.size / 1024)} KB)`).join(" • ")}
+              {files.map((f) => `${f.name} (${Math.round(f.size / 1024)} KB)`).join(" • ")}
             </div>
           </div>
         )}
