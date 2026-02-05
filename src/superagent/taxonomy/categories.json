@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "categories": [
+    { "id": "inbox", "name": "Inbox", "folderPath": "inbox" },
+
+    { "id": "personal.utilities", "name": "Personal / Utilities", "folderPath": "personal/utilities" },
+    { "id": "personal.medical", "name": "Personal / Medical", "folderPath": "personal/medical" },
+    { "id": "personal.legal", "name": "Personal / Legal", "folderPath": "personal/legal" },
+    { "id": "personal.insurance", "name": "Personal / Insurance", "folderPath": "personal/insurance" },
+
+    { "id": "business.invoices", "name": "Business / Invoices", "folderPath": "business/invoices" },
+    { "id": "business.receipts", "name": "Business / Receipts", "folderPath": "business/receipts" },
+    { "id": "business.contracts", "name": "Business / Contracts", "folderPath": "business/contracts" },
+    { "id": "business.meetings", "name": "Business / Meetings", "folderPath": "business/meetings" },
+
+    { "id": "voice.notes", "name": "Voice / Notes", "folderPath": "voice/notes" },
+    { "id": "voice.expenses", "name": "Voice / Expenses", "folderPath": "voice/expenses" },
+
+    { "id": "needs_review", "name": "Needs Review", "folderPath": "needs_review" }
+  ]
+}
+
