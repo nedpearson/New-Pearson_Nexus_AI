@@ -7,6 +7,8 @@ import type { LayoutState } from "./utils/store";
 import { Brand } from "./components/Brand";
 import { Button, Card, Pill } from "./components/kit";
 import { BusinessDashboardModule } from "../biz/modules/BusinessDashboardModule";
+import { GuidesModule } from "../biz/modules/GuidesModule";
+import { PlaceholderModule } from "../biz/modules/PlaceholderModule";
 
 import { DashboardModule } from "./modules/DashboardModule";
 import { DocumentsModule } from "./modules/DocumentsModule";
@@ -15,7 +17,16 @@ import { LegalModule } from "./modules/LegalModule";
 import { ReportsModule } from "./modules/ReportsModule";
 import { AdminModule } from "./modules/AdminModule";
 
-const SIDEBAR_KEYS: ModuleKey[] = ["dashboard", "finances", "legal", "documents", "reports", "admin"];
+const PERSONAL_EXTRAS: ModuleItem[] = [
+  { key: "guides", title: "Guides", subtitle: "Install + how‑tos + drill‑downs", tier: "Free", accent: "cyan", icon: "🧭" },
+];
+
+const BUSINESS_EXTRAS: ModuleItem[] = [
+  { key: "clients", title: "Clients", subtitle: "Contacts, notes, status", tier: "Free", accent: "cyan", icon: "👥" },
+  { key: "invoices", title: "Invoices", subtitle: "Create, send, track", tier: "Plus", accent: "amber", icon: "🧾" },
+  { key: "projects", title: "Projects", subtitle: "Work items + deliverables", tier: "Plus", accent: "purple", icon: "📁" },
+  { key: "guides", title: "Guides", subtitle: "Install + how‑tos + drill‑downs", tier: "Free", accent: "cyan", icon: "🧭" },
+];
 
 const GUIDE_LINKS: { label: string; href: string }[] = [
   { label: "Install on Phone", href: "/INSTALL_ON_PHONE_GUIDE.md" },
@@ -45,7 +56,14 @@ export function AppShell() {
   }, [mode]);
 
   const scope = mode; // namespace for localStorage (layout + data)
-  const activeModules = MODULES; // same sidebar tabs for Personal + Business
+  const extraModules = mode === "business" ? BUSINESS_EXTRAS : PERSONAL_EXTRAS;
+  const activeModules = useMemo(() => {
+    // Core tabs are always present; extras are opt-in via "More".
+    // Deduplicate by key in case future registries overlap.
+    const all = [...MODULES, ...extraModules];
+    const seen = new Set<ModuleKey>();
+    return all.filter((m) => (seen.has(m.key) ? false : (seen.add(m.key), true)));
+  }, [extraModules]);
   const defaultDesktopOrder = DEFAULT_DESKTOP_ORDER;
   const defaultMobileOrder = DEFAULT_MOBILE_ORDER;
 
@@ -168,110 +186,62 @@ export function AppShell() {
   const enabled = layout.enabled || defaultEnabled;
   const isEnabled = (k: ModuleKey) => enabled[k] !== false; // default true unless explicitly false
 
-  // Sidebar is identical for Personal + Business: fixed, core tabs only.
-  const desktopItems = SIDEBAR_KEYS
-    .filter((k) => isEnabled(k))
-    .map((k) => byKey.get(k))
-    .filter(Boolean) as ModuleItem[];
+  // Sidebar order is customizable + persisted (drag/drop in sidebar).
+  const desktopItems = useMemo(() => {
+    return layout.desktopOrder
+      .filter((k) => isEnabled(k))
+      .map((k) => byKey.get(k))
+      .filter(Boolean) as ModuleItem[];
+  }, [layout.desktopOrder, enabled, byKey]);
 
-  const mobileItems = SIDEBAR_KEYS
-    .filter((k) => isEnabled(k))
-    .map((k) => byKey.get(k))
-    .filter(Boolean) as ModuleItem[];
+  const addableItems = useMemo(() => {
+    const have = new Set(layout.desktopOrder);
+    return extraModules.filter((m) => !have.has(m.key));
+  }, [extraModules, layout.desktopOrder]);
 
-  function openGuide(e: React.MouseEvent, href: string) {
-    e.preventDefault();
-    e.stopPropagation();
-    window.open(href, "_blank", "noreferrer");
+  function move<T>(arr: T[], from: number, to: number) {
+    const copy = [...arr];
+    const [x] = copy.splice(from, 1);
+    copy.splice(to, 0, x);
+    return copy;
   }
 
-  function drilldownsFor(k: ModuleKey): { label: string; href?: string }[] {
-    const showMore = layout.prefs?.showMore === true;
-    if (k === "dashboard") {
-      const basicGuides = showMore ? GUIDE_LINKS : GUIDE_LINKS.slice(0, 2);
-      return mode === "business"
-        ? [
-          { label: "Business drill-downs" },
-          { label: "Clients" },
-          { label: "Invoices" },
-          { label: "Projects" },
-          { label: "Reports" },
-          { label: "Guides" },
-          ...basicGuides,
-        ]
-        : [
-          { label: "Personal drill-downs" },
-          { label: "Today" },
-          { label: "Pinned" },
-          { label: "Guides" },
-          ...basicGuides,
-        ];
-    }
-    if (k === "documents") {
-      const maxCats = showMore ? 10 : 6;
-      const cats = (data.categories || []).map((c) => c.label).slice(0, maxCats);
-      const more = Math.max(0, (data.categories || []).length - cats.length);
-      const out = [
-        { label: "Upload file" },
-        { label: "Voice" },
-        { label: "Video" },
-        { label: "Notes" },
-        { label: "Categories" },
-        ...cats.map((c) => ({ label: c })),
-      ];
-      if (more) out.push({ label: `+${more} more…` });
-      return out;
-    }
-    if (k === "finances") {
-      return mode === "business"
-        ? [
-          { label: "Invoices" },
-          { label: "Expenses" },
-          { label: "Receipts" },
-          { label: "Payment links" },
-          ...(showMore ? [{ label: "Exports" }, { label: "Monthly summary" }] : []),
-        ]
-        : [
-          { label: "Bills" },
-          { label: "Expenses" },
-          { label: "Payment links" },
-          ...(showMore ? [{ label: "Exports" }, { label: "Monthly summary" }] : []),
-        ];
-    }
-    if (k === "legal") {
-      return mode === "business"
-        ? [
-          { label: "Contracts" },
-          { label: "Issues" },
-          { label: "Evidence" },
-          { label: "Open guide", href: "/FINANCIAL_LEGAL_GUIDE.md" },
-          ...(showMore ? [{ label: "Court dates" }, { label: "Deadlines" }] : []),
-        ]
-        : [
-          { label: "Divorce" },
-          { label: "Custody" },
-          { label: "Evidence" },
-          { label: "Open guide", href: "/FINANCIAL_LEGAL_GUIDE.md" },
-          ...(showMore ? [{ label: "Court dates" }, { label: "Deadlines" }] : []),
-        ];
-    }
-    if (k === "reports") {
-      return [
-        { label: "Summary" },
-        { label: "Insights" },
-        { label: "Exports" },
-        ...(showMore ? [{ label: "Weekly" }, { label: "Monthly" }, { label: "Category trends" }] : []),
-      ];
-    }
-    if (k === "admin") {
-      return [
-        { label: "Integrations" },
-        { label: "Tier" },
-        { label: "Reorder tabs" },
-        { label: "Categories" },
-      ];
-    }
-    return [];
+  const [sidebarEdit, setSidebarEdit] = useState(false);
+  const [draggingKey, setDraggingKey] = useState<string|undefined>(undefined);
+  const dragFrom = React.useRef<number>(-1);
+
+  function onDragStart(idx: number, key: string) {
+    dragFrom.current = idx;
+    setDraggingKey(key);
+  }
+
+  function onDropSidebar(toIdx: number) {
+    const fromIdx = dragFrom.current;
+    if (fromIdx < 0 || fromIdx === toIdx) { dragFrom.current = -1; setDraggingKey(undefined); return; }
+    const nextOrder = move(layout.desktopOrder, fromIdx, toIdx);
+    setLayout((prev) => ({ ...prev, desktopOrder: nextOrder, mobileOrder: nextOrder }));
+    dragFrom.current = -1;
+    setDraggingKey(undefined);
+  }
+
+  function addSidebarHeader(key: ModuleKey) {
+    const existing = layout.desktopOrder.includes(key);
+    const nextOrder = existing ? layout.desktopOrder : (() => {
+      const base = [...layout.desktopOrder];
+      const adminIdx = base.indexOf("admin");
+      const insertAt = adminIdx >= 0 ? adminIdx : base.length;
+      base.splice(insertAt, 0, key);
+      return base;
+    })();
+
+    const next: LayoutState = {
+      ...layout,
+      enabled: { ...(layout.enabled || {}), [key]: true },
+      desktopOrder: nextOrder,
+      mobileOrder: layout.mobileOrder.includes(key) ? layout.mobileOrder : [...layout.mobileOrder, key],
+    };
+    setLayout(next);
+    setActive(key);
   }
 
   function setActive(k: ModuleKey) {
@@ -312,6 +282,10 @@ export function AppShell() {
       {layout.active === "finances"  && <FinancesModule data={data} />}
       {layout.active === "legal"     && <LegalModule data={data} setData={setData} />}
       {layout.active === "reports"   && <ReportsModule data={data} />}
+      {layout.active === "guides"    && <GuidesModule />}
+      {layout.active === "clients"   && <PlaceholderModule title="Clients" subtitle="Contacts, notes, status (prototype)" />}
+      {layout.active === "invoices"  && <PlaceholderModule title="Invoices" subtitle="Create, send, track, export (prototype)" />}
+      {layout.active === "projects"  && <PlaceholderModule title="Projects" subtitle="Work items + deliverables (prototype)" />}
 
       {layout.active === "admin"     && <AdminModule data={data} setData={setData} layout={layout} setLayout={setLayout} scope={scope} modules={activeModules} />}
     </>
@@ -333,10 +307,20 @@ export function AppShell() {
 
             <div className="pn-card pn-p" style={{ marginTop: 14 }}>
               <div className="pn-col">
+                <div className="pn-row" style={{ marginBottom: 10 }}>
+                  <div style={{ fontWeight: 900 }}>Sidebar</div>
+                  <Button
+                    variant={sidebarEdit ? "primary" : "ghost"}
+                    onClick={() => setSidebarEdit((v) => !v)}
+                    title="Drag and drop to reorder"
+                  >
+                    {sidebarEdit ? "Done" : "Edit"}
+                  </Button>
+                </div>
                 {desktopItems.map(m => {
                   const allowed = isTierAllowed(layout.userTier as Tier, m.tier);
                   const active = layout.active === m.key;
-                  const drill = drilldownsFor(m.key);
+                  const idx = layout.desktopOrder.indexOf(m.key);
                   return (
                     <button
                       key={m.key}
@@ -346,6 +330,10 @@ export function AppShell() {
                       type="button"
                       title={!allowed ? `Unlock in ${m.tier}` : m.subtitle}
                       style={{ opacity: allowed ? 1 : .45, cursor: allowed ? "pointer" : "not-allowed" }}
+                      draggable={sidebarEdit}
+                      onDragStart={() => sidebarEdit && onDragStart(idx, m.key)}
+                      onDragOver={(e) => sidebarEdit && e.preventDefault()}
+                      onDrop={() => sidebarEdit && onDropSidebar(idx)}
                     >
                       <div className="pn-row">
                         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
@@ -354,38 +342,9 @@ export function AppShell() {
                           <div>
                             <div style={{ fontWeight: 900 }}>{m.title}</div>
                             <div className="pn-small pn-muted">{m.subtitle}</div>
-                            {!!drill.length && (
-                              <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
-                                {drill.map((d) => {
-                                  const isLink = Boolean(d.href);
-                                  const style: React.CSSProperties = {
-                                    fontSize: 11,
-                                    lineHeight: 1,
-                                    padding: "6px 8px",
-                                    borderRadius: 999,
-                                    border: "1px solid rgba(255,255,255,.14)",
-                                    background: "rgba(255,255,255,.06)",
-                                    color: "rgba(238,242,255,.78)",
-                                    cursor: isLink ? "pointer" : "default",
-                                  };
-                                  return isLink ? (
-                                    <a
-                                      key={d.label + d.href}
-                                      href={d.href}
-                                      onClick={(e) => openGuide(e, d.href!)}
-                                      style={style}
-                                      title={d.label}
-                                    >
-                                      {d.label}
-                                    </a>
-                                  ) : (
-                                    <span key={d.label} style={style} title={d.label}>{d.label}</span>
-                                  );
-                                })}
-                              </div>
-                            )}
                           </div>
                         </div>
+                        {sidebarEdit && <span className="pn-badge">drag</span>}
                         {!allowed && <span className="pn-badge">🔒 {m.tier}</span>}
                       </div>
                     </button>
@@ -393,6 +352,32 @@ export function AppShell() {
                 })}
               </div>
             </div>
+
+            {!!addableItems.length && (
+              <div className="pn-card pn-p" style={{ marginTop: 14 }}>
+                <div className="pn-small pn-muted" style={{ marginBottom: 10 }}>
+                  More (optional)
+                </div>
+                <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                  {addableItems.map((m) => {
+                    const allowed = isTierAllowed(layout.userTier as Tier, m.tier);
+                    return (
+                      <button
+                        key={m.key}
+                        className="pn-btn"
+                        type="button"
+                        disabled={!allowed}
+                        title={!allowed ? `Unlock in ${m.tier}` : `Add ${m.title} to sidebar`}
+                        onClick={() => allowed && addSidebarHeader(m.key)}
+                        style={{ opacity: allowed ? 1 : .45 }}
+                      >
+                        + {m.title}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <div className="pn-card pn-p" style={{ marginTop: 14 }}>
               <div className="pn-small pn-muted">Drag/drop reorder is in Admin. All saved locally for this prototype.</div>
