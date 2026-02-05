@@ -1,21 +1,9 @@
 import React from "react";
+import type { CrashInfo } from "./crashHandlers";
 
-type CrashInfo = { title: string; detail: string };
-
-function esc(s: any) {
-  return String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" } as any)[c]);
-}
-
-export function installGlobalCrashHandlers(push: (c: CrashInfo) => void) {
-  window.addEventListener("error", (e: any) => {
-    const detail = e?.error?.stack || e?.message || String(e);
-    push({ title: "window.error", detail });
-  });
-  window.addEventListener("unhandledrejection", (e: any) => {
-    const r = e?.reason;
-    const detail = r?.stack || r?.message || String(r);
-    push({ title: "unhandledrejection", detail });
-  });
+function esc(s: unknown) {
+  const map: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;" };
+  return String(s ?? "").replace(/[&<>]/g, (c) => map[c] || c);
 }
 
 export function CrashOverlay({ crash, onClose }: { crash: CrashInfo | null; onClose: () => void }) {
@@ -56,8 +44,14 @@ export class ErrorBoundary extends React.Component<{ onCrash: (c: CrashInfo) => 
     return { hasError: true };
   }
 
-  componentDidCatch(error: any) {
-    const detail = error?.stack || error?.message || String(error);
+  componentDidCatch(error: unknown) {
+    const maybe = (error && typeof error === "object")
+      ? (error as { stack?: unknown; message?: unknown })
+      : null;
+    const detail =
+      typeof maybe?.stack === "string" ? maybe.stack
+        : typeof maybe?.message === "string" ? maybe.message
+          : String(error);
     this.props.onCrash({ title: "React ErrorBoundary", detail });
   }
 

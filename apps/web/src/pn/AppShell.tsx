@@ -32,6 +32,10 @@ function dotClass(accent: ModuleItem["accent"]) {
 
 export function AppShell() {
   type Mode = "personal" | "business";
+  type BeforeInstallPromptEvent = Event & {
+    prompt: () => Promise<void>;
+    userChoice?: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
+  };
   const [mode, setMode] = useState<Mode>(() => {
     if (typeof window === "undefined") return "personal";
     return localStorage.getItem("pnx.mode") === "business" ? "business" : "personal";
@@ -63,20 +67,20 @@ export function AppShell() {
     guides: false,
   }), []);
 
-  const fallbackLayout: LayoutState = {
+  const fallbackLayout = useMemo((): LayoutState => ({
     active: "dashboard",
     desktopOrder: defaultDesktopOrder,
     mobileOrder: defaultMobileOrder,
     userTier: "Pro",
     enabled: defaultEnabled,
     prefs: { showMore: false },
-  };
+  }), [defaultDesktopOrder, defaultMobileOrder, defaultEnabled]);
 
   const [layout, setLayout] = useState<LayoutState>(() => fallbackLayout);
   const [data, setData] = useState(() => SAMPLE_DATA);
 
   // --- PWA install UX ---
-  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [mobileModalOpen, setMobileModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -89,7 +93,7 @@ export function AppShell() {
     setLayout(loadedLayout);
     setData(loadData(SAMPLE_DATA, scope));
     setSidebarPrefs(loadSidebarPrefs(view, loadedLayout, navDefaults));
-  }, [scope]);
+  }, [scope, view, navDefaults, fallbackLayout]);
 
   useEffect(() => { saveLayout(layout, scope); }, [layout, scope]);
   useEffect(() => { saveData(data, scope); }, [data, scope]);
@@ -104,27 +108,29 @@ export function AppShell() {
 
     const checkInstalled = () => {
       const standalone = window.matchMedia?.("(display-mode: standalone)")?.matches;
-      const iosStandalone = (window.navigator as any)?.standalone === true;
+      const nav = window.navigator as Navigator & { standalone?: boolean };
+      const iosStandalone = nav.standalone === true;
       setIsInstalled(Boolean(standalone || iosStandalone));
     };
 
     checkInstalled();
 
-    const onBip = (e: any) => {
+    const onBip: EventListener = (e) => {
       // Chrome/Edge: capture install prompt
-      e.preventDefault?.();
-      setInstallPrompt(e);
+      const maybe = e as unknown as BeforeInstallPromptEvent;
+      maybe.preventDefault?.();
+      if (typeof maybe.prompt === "function") setInstallPrompt(maybe);
     };
     const onInstalled = () => {
       setInstallPrompt(null);
       setIsInstalled(true);
     };
 
-    window.addEventListener("beforeinstallprompt", onBip as any);
-    window.addEventListener("appinstalled", onInstalled as any);
+    window.addEventListener("beforeinstallprompt", onBip);
+    window.addEventListener("appinstalled", onInstalled);
     return () => {
-      window.removeEventListener("beforeinstallprompt", onBip as any);
-      window.removeEventListener("appinstalled", onInstalled as any);
+      window.removeEventListener("beforeinstallprompt", onBip);
+      window.removeEventListener("appinstalled", onInstalled);
     };
   }, []);
 
@@ -189,7 +195,7 @@ export function AppShell() {
   // Provide a ModuleItem list for the existing Admin module (keep it working).
   const adminModules = useMemo((): ModuleItem[] => {
     const seen = new Set<ModuleKey>();
-    const pickAccent = (header: string) =>
+    const pickAccent = (header: string): ModuleItem["accent"] =>
       header === "money" ? "amber"
         : header === "legal" ? "rose"
           : header === "admin" ? "purple"
@@ -204,7 +210,7 @@ export function AppShell() {
         title: it.label,
         subtitle: "",
         tier: it.minTier || "Free",
-        accent: pickAccent(it.header) as any,
+        accent: pickAccent(it.header),
         icon: it.icon || "•",
       });
     }
@@ -246,7 +252,7 @@ export function AppShell() {
       {layout.active === "documents" && <DocumentsModule data={data} setData={setData} />}
       {layout.active === "finances"  && <FinancesModule data={data} />}
       {layout.active === "legal"     && <LegalModule data={data} setData={setData} />}
-      {layout.active === "reports"   && <ReportsModule data={data} />}
+      {layout.active === "reports"   && <ReportsModule data={data} view={mode} />}
       {layout.active === "guides"    && <GuidesModule />}
       {layout.active === "clients"   && <PlaceholderModule title="Clients" subtitle="Contacts, notes, status (prototype)" />}
       {layout.active === "invoices"  && <PlaceholderModule title="Invoices" subtitle="Create, send, track, export (prototype)" />}
@@ -290,7 +296,7 @@ export function AppShell() {
                       const allowed = allowedTier && allowedAdmin;
                       const active = layout.active === it.path;
                       const isPinned = (sidebarPrefs.pinnedItemIds || []).includes(it.id);
-                      const accent =
+                      const accent: ModuleItem["accent"] =
                         it.header === "money" ? "amber"
                           : it.header === "legal" ? "rose"
                             : it.header === "admin" ? "purple"
@@ -308,7 +314,7 @@ export function AppShell() {
                         >
                           <div className="pn-row">
                             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                              <div className={dotClass(accent as any)} />
+                              <div className={dotClass(accent)} />
                               <div style={{ fontSize: 18 }}>{it.icon || "•"}</div>
                               <div style={{ fontWeight: 900 }}>{it.label}</div>
                             </div>

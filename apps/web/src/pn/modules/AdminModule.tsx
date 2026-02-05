@@ -5,6 +5,7 @@ import { saveData, saveLayout } from "../utils/store";
 import type { LayoutState } from "../utils/store";
 import { MODULES } from "../registry";
 import type { ModuleItem } from "../types";
+import type { ModuleKey } from "../types";
 
 function move<T>(arr: T[], from: number, to: number) {
   const copy = [...arr];
@@ -31,7 +32,7 @@ export function AdminModule(props: {
     saveLayout(next, props.scope || "personal");
   }
 
-  function toggleModule(key: any, nextValue: boolean) {
+  function toggleModule(key: ModuleKey, nextValue: boolean) {
     const next = {
       ...props.layout,
       enabled: { ...(props.layout.enabled || {}), [key]: nextValue },
@@ -237,7 +238,7 @@ export function AdminModule(props: {
                 <select
                   className="pn-select"
                   value={c.color}
-                  onChange={(e)=>updateCategory(c.key, { color: e.target.value as any })}
+                  onChange={(e)=>updateCategory(c.key, { color: e.target.value as Category["color"] })}
                   aria-label={`Category color for ${c.key}`}
                   title="Category color"
                 >

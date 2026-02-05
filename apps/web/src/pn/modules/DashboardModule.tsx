@@ -1,8 +1,9 @@
 import React from "react";
 import type { AppData } from "../data/model";
 import { Tile, Card, Button, Pill } from "../components/kit";
+import type { ModuleKey } from "../types";
 
-export function DashboardModule(props: { data: AppData; go: (k: any) => void; userTier: "Free"|"Plus"|"Pro" }) {
+export function DashboardModule(props: { data: AppData; go: (k: ModuleKey) => void; userTier: "Free"|"Plus"|"Pro" }) {
   const dueBills = props.data.bills.filter(b => b.status === "due" || b.status === "late").length;
   const needsApproval = props.data.library.filter(i => !i.approvedCategory).length;
 

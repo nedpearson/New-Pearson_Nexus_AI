@@ -1,6 +1,71 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import type { AppData } from "../data/model";
 import { Card, Button, Pill } from "../components/kit";
+
+type ReportKind =
+  | "overview"
+  | "profit_loss"
+  | "spending_vendor"
+  | "category_month"
+  | "ledger"
+  | "captures"
+  | "money"
+  | "exports";
+
+type ReportPreset = {
+  id: string;
+  name: string;
+  createdAt: number;
+  kind: ReportKind;
+  filters: {
+    start: string;
+    end: string;
+    captureKind: string;
+    captureCategory: string;
+    expenseCategory: string;
+    incomeCategory: string;
+    ledgerTypes: string[];
+  };
+};
+
+type IncomeRow = NonNullable<AppData["income"]>[number];
+type ExpenseRow = AppData["expenses"][number];
+type CatMonthRow = ({ type: "expense" } & ExpenseRow) | ({ type: "income" } & IncomeRow);
+
+function presetsKey(view: "personal" | "business") {
+  return `pnx.reportPresets.v1.${view}`;
+}
+
+function rid(prefix: string) {
+  return prefix + "_" + Math.random().toString(16).slice(2, 10);
+}
+
+function monthKey(iso: string) {
+  return iso.slice(0, 7);
+}
+
+function money(n: number) {
+  return n.toLocaleString(undefined, { style: "currency", currency: "USD" });
+}
+
+function Modal(props: { title: string; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,.55)", display: "grid", placeItems: "center", padding: 14 }}
+      onClick={props.onClose}
+    >
+      <div className="pn-card pn-p" style={{ maxWidth: 980, width: "100%" }} onClick={(e) => e.stopPropagation()}>
+        <div className="pn-row" style={{ marginBottom: 10 }}>
+          <div style={{ fontWeight: 900 }}>{props.title}</div>
+          <Button onClick={props.onClose} title="Close">Close</Button>
+        </div>
+        {props.children}
+      </div>
+    </div>
+  );
+}
 
 function isoDay(ts: number) {
   try {
@@ -17,8 +82,9 @@ function inIsoRange(iso: string, start?: string, end?: string) {
   return true;
 }
 
-export function ReportsModule(props: { data: AppData }) {
-  const [tab, setTab] = useState<"overview"|"captures"|"money"|"exports">("overview");
+export function ReportsModule(props: { data: AppData; view?: "personal" | "business" }) {
+  const view: "personal" | "business" = props.view || "personal";
+  const [kind, setKind] = useState<ReportKind>("overview");
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const defaultStart = useMemo(() => {
     const d = new Date();
@@ -31,6 +97,27 @@ export function ReportsModule(props: { data: AppData }) {
   const [captureKind, setCaptureKind] = useState<string>("any");
   const [captureCategory, setCaptureCategory] = useState<string>("any");
   const [expenseCategory, setExpenseCategory] = useState<string>("any");
+  const [incomeCategory, setIncomeCategory] = useState<string>("any");
+  const [ledgerTypes, setLedgerTypes] = useState<string[]>(["captures", "expenses", "income"]);
+
+  const [presetName, setPresetName] = useState("");
+  const [presets, setPresets] = useState<ReportPreset[]>([]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem(presetsKey(view));
+      const parsed = raw ? JSON.parse(raw) : [];
+      setPresets(Array.isArray(parsed) ? (parsed as ReportPreset[]) : []);
+    } catch {
+      setPresets([]);
+    }
+  }, [view]);
+
+  function savePresets(next: ReportPreset[]) {
+    setPresets(next);
+    try { localStorage.setItem(presetsKey(view), JSON.stringify(next)); } catch { /* ignore */ }
+  }
 
   const captureCategoryOptions = useMemo(() => {
     const byKey = new Map(props.data.categories.map((c) => [c.key, c.label] as const));
@@ -43,6 +130,13 @@ export function ReportsModule(props: { data: AppData }) {
     const list = Array.from(set).sort((a, b) => a.localeCompare(b));
     return ["any", ...list];
   }, [props.data.expenses]);
+
+  const incomeCategoryOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const i of (props.data.income || [])) set.add(i.category);
+    const list = Array.from(set).sort((a, b) => a.localeCompare(b));
+    return ["any", ...list];
+  }, [props.data.income]);
 
   const filteredCaptures = useMemo(() => {
     return props.data.library.filter((i) => {
@@ -63,7 +157,16 @@ export function ReportsModule(props: { data: AppData }) {
     });
   }, [props.data.expenses, start, end, expenseCategory]);
 
+  const filteredIncome = useMemo(() => {
+    return (props.data.income || []).filter((i) => {
+      if (!inIsoRange(i.date, start || undefined, end || undefined)) return false;
+      if (incomeCategory !== "any" && i.category !== incomeCategory) return false;
+      return true;
+    });
+  }, [props.data.income, start, end, incomeCategory]);
+
   const expenseTotal = useMemo(() => filteredExpenses.reduce((a, e) => a + e.amount, 0), [filteredExpenses]);
+  const incomeTotal = useMemo(() => filteredIncome.reduce((a, i) => a + i.amount, 0), [filteredIncome]);
   const dueBills = useMemo(() => props.data.bills.filter(b => b.status === "due" || b.status === "late"), [props.data.bills]);
 
   const topCaptureCategories = useMemo(() => {
@@ -79,18 +182,33 @@ export function ReportsModule(props: { data: AppData }) {
       .slice(0, 8);
   }, [filteredCaptures, props.data.categories]);
 
-  function money(n: number) {
-    return n.toLocaleString(undefined, { style: "currency", currency: "USD" });
+  const [drillOpen, setDrillOpen] = useState(false);
+  const [drillTitle, setDrillTitle] = useState("");
+  const [drillBody, setDrillBody] = useState<React.ReactNode>(null);
+
+  function openDrill(title: string, body: React.ReactNode) {
+    setDrillTitle(title);
+    setDrillBody(body);
+    setDrillOpen(true);
   }
 
   return (
     <div className="pn-col">
-      <Card title="Reports" subtitle="Global reporting across captures + money (prototype)." right={<Pill>{tab}</Pill>}>
+      <Card title="Reports" subtitle="Global reporting with filters + drill-downs." right={<Pill>{kind}</Pill>}>
         <div style={{ display:"flex", gap:8, marginBottom: 10, flexWrap:"wrap", alignItems:"center" }}>
-          <Button onClick={() => setTab("overview")} variant={tab === "overview" ? "primary" : "ghost"}>Overview</Button>
-          <Button onClick={() => setTab("captures")} variant={tab === "captures" ? "primary" : "ghost"}>Captures</Button>
-          <Button onClick={() => setTab("money")} variant={tab === "money" ? "primary" : "ghost"}>Money</Button>
-          <Button onClick={() => setTab("exports")} variant={tab === "exports" ? "primary" : "ghost"}>Exports</Button>
+          <select className="pn-select" value={kind} onChange={(e)=>setKind(e.target.value as ReportKind)} aria-label="Report type" title="Report type" style={{ maxWidth: 280 }}>
+            <option value="overview">Overview</option>
+            <option value="profit_loss">Profit & Loss</option>
+            <option value="spending_vendor">Spending by vendor</option>
+            <option value="category_month">Category totals by month</option>
+            <option value="ledger">Ledger</option>
+            <option value="captures">Captures</option>
+            <option value="money">Money</option>
+            <option value="exports">Exports</option>
+          </select>
+          <Button onClick={() => setKind("overview")} variant={kind === "overview" ? "primary" : "ghost"}>Overview</Button>
+          <Button onClick={() => setKind("profit_loss")} variant={kind === "profit_loss" ? "primary" : "ghost"}>P&L</Button>
+          <Button onClick={() => setKind("ledger")} variant={kind === "ledger" ? "primary" : "ghost"}>Ledger</Button>
         </div>
 
         <div className="pn-item" style={{ background: "rgba(0,0,0,.12)" }}>
@@ -128,27 +246,88 @@ export function ReportsModule(props: { data: AppData }) {
                 ))}
               </select>
             </div>
+
+            <div style={{ display:"flex", gap: 10, flexWrap:"wrap", alignItems:"center" }}>
+              <div className="pn-small pn-muted" style={{ minWidth: 64 }}>Income</div>
+              <select className="pn-select" value={incomeCategory} onChange={(e)=>setIncomeCategory(e.target.value)} aria-label="Income category" title="Income category">
+                {incomeCategoryOptions.map((c) => (
+                  <option key={c} value={c}>{c === "any" ? "Any category" : c}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display:"flex", gap: 10, flexWrap:"wrap", alignItems:"center" }}>
+              <div className="pn-small pn-muted" style={{ minWidth: 64 }}>Presets</div>
+              <input className="pn-input" value={presetName} onChange={(e)=>setPresetName(e.target.value)} placeholder="Preset name..." style={{ maxWidth: 220 }} />
+              <Button
+                onClick={() => {
+                  const name = presetName.trim();
+                  if (!name) return;
+                  const p: ReportPreset = {
+                    id: rid("rp"),
+                    name,
+                    createdAt: Date.now(),
+                    kind,
+                    filters: { start, end, captureKind, captureCategory, expenseCategory, incomeCategory, ledgerTypes },
+                  };
+                  savePresets([p, ...presets].slice(0, 25));
+                  setPresetName("");
+                }}
+                variant="primary"
+                title="Save current report + filters"
+              >
+                Save
+              </Button>
+              {presets.length > 0 && (
+                <select
+                  className="pn-select"
+                  value=""
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    const p = presets.find((x) => x.id === id);
+                    if (!p) return;
+                    setKind(p.kind);
+                    setStart(p.filters.start);
+                    setEnd(p.filters.end);
+                    setCaptureKind(p.filters.captureKind);
+                    setCaptureCategory(p.filters.captureCategory);
+                    setExpenseCategory(p.filters.expenseCategory);
+                    setIncomeCategory(p.filters.incomeCategory);
+                    setLedgerTypes(p.filters.ledgerTypes || ["captures","expenses","income"]);
+                    e.currentTarget.value = "";
+                  }}
+                  aria-label="Load preset"
+                  title="Load preset"
+                  style={{ maxWidth: 260 }}
+                >
+                  <option value="">Load preset…</option>
+                  {presets.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
           </div>
         </div>
 
-        {tab === "overview" && (
+        {kind === "overview" && (
           <>
             <div className="pn-layout" style={{ gridTemplateColumns: "repeat(4, minmax(0,1fr))", marginTop: 12 }}>
               <Card title="Captures" subtitle="Filtered range">
                 <div className="pn-kpiNum">{filteredCaptures.length}</div>
                 <div className="pn-small pn-muted">items</div>
               </Card>
+              <Card title="Income" subtitle="Filtered range">
+                <div className="pn-kpiNum">{money(incomeTotal)}</div>
+                <div className="pn-small pn-muted">{filteredIncome.length} rows</div>
+              </Card>
               <Card title="Expenses" subtitle="Filtered range">
                 <div className="pn-kpiNum">{money(expenseTotal)}</div>
                 <div className="pn-small pn-muted">{filteredExpenses.length} rows</div>
               </Card>
-              <Card title="Bills due/late" subtitle="All bills (no date field)">
+              <Card title="Bills due/late" subtitle="All bills (no bill dates yet)">
                 <div className="pn-kpiNum">{dueBills.length}</div>
                 <div className="pn-small pn-muted">due or late</div>
-              </Card>
-              <Card title="Legal threads" subtitle="All threads">
-                <div className="pn-kpiNum">{props.data.legal.threads.length}</div>
-                <div className="pn-small pn-muted">threads</div>
               </Card>
             </div>
 
@@ -162,7 +341,7 @@ export function ReportsModule(props: { data: AppData }) {
                     key={c.key}
                     className="pn-btn"
                     type="button"
-                    onClick={() => { setCaptureCategory(c.key); setTab("captures"); }}
+                    onClick={() => { setCaptureCategory(c.key); setKind("captures"); }}
                     title={`Filter to ${c.label}`}
                   >
                     {c.label} <span className="pn-muted">({c.count})</span>
@@ -173,7 +352,220 @@ export function ReportsModule(props: { data: AppData }) {
           </>
         )}
 
-        {tab === "captures" && (
+        {kind === "profit_loss" && (
+          <div className="pn-layout" style={{ gridTemplateColumns: "repeat(3, minmax(0,1fr))", marginTop: 12 }}>
+            <Card title="Income" subtitle="Filtered range">
+              <div className="pn-kpiNum">{money(incomeTotal)}</div>
+              <div className="pn-small pn-muted">{filteredIncome.length} rows</div>
+              <div style={{ marginTop: 10 }}>
+                <Button variant="primary" onClick={() => openDrill("Income transactions", (
+                  <div className="pn-list">
+                    {filteredIncome.map((i) => (
+                      <div key={i.id} className="pn-item" style={{ background:"rgba(0,0,0,.12)" }}>
+                        <div className="pn-row">
+                          <div>
+                            <div style={{ fontWeight: 900 }}>{i.source}</div>
+                            <div className="pn-small pn-muted">{i.date} • {i.category}</div>
+                          </div>
+                          <div style={{ fontWeight: 900 }}>{money(i.amount)}</div>
+                        </div>
+                        {i.notes && <div className="pn-small pn-muted" style={{ marginTop: 6 }}>{i.notes}</div>}
+                      </div>
+                    ))}
+                    {filteredIncome.length === 0 && <div className="pn-small pn-muted">No income rows match filters.</div>}
+                  </div>
+                ))}>Drill down</Button>
+              </div>
+            </Card>
+            <Card title="Expenses" subtitle="Filtered range">
+              <div className="pn-kpiNum">{money(expenseTotal)}</div>
+              <div className="pn-small pn-muted">{filteredExpenses.length} rows</div>
+              <div style={{ marginTop: 10 }}>
+                <Button variant="primary" onClick={() => openDrill("Expense transactions", (
+                  <div className="pn-list">
+                    {filteredExpenses.map((e) => (
+                      <div key={e.id} className="pn-item" style={{ background:"rgba(0,0,0,.12)" }}>
+                        <div className="pn-row">
+                          <div>
+                            <div style={{ fontWeight: 900 }}>{e.vendor}</div>
+                            <div className="pn-small pn-muted">{e.date} • {e.category}</div>
+                          </div>
+                          <div style={{ fontWeight: 900 }}>{money(e.amount)}</div>
+                        </div>
+                      </div>
+                    ))}
+                    {filteredExpenses.length === 0 && <div className="pn-small pn-muted">No expense rows match filters.</div>}
+                  </div>
+                ))}>Drill down</Button>
+              </div>
+            </Card>
+            <Card title="Net" subtitle="Income − Expenses">
+              <div className="pn-kpiNum">{money(incomeTotal - expenseTotal)}</div>
+              <div className="pn-small pn-muted">filtered range</div>
+            </Card>
+          </div>
+        )}
+
+        {kind === "spending_vendor" && (
+          <div className="pn-list" style={{ marginTop: 12 }}>
+            {(() => {
+              const by = new Map<string, { vendor: string; total: number; rows: typeof filteredExpenses }>();
+              for (const e of filteredExpenses) {
+                const k = e.vendor || "Unknown";
+                const cur = by.get(k) || { vendor: k, total: 0, rows: [] as typeof filteredExpenses };
+                cur.total += e.amount;
+                cur.rows.push(e);
+                by.set(k, cur);
+              }
+              const rows = Array.from(by.values()).sort((a, b) => b.total - a.total);
+              return rows.map((r) => (
+                <button
+                  key={r.vendor}
+                  className="pn-navBtn"
+                  type="button"
+                  onClick={() => openDrill(`Vendor: ${r.vendor}`, (
+                    <div className="pn-list">
+                      {r.rows.map((e) => (
+                        <div key={e.id} className="pn-item" style={{ background:"rgba(0,0,0,.12)" }}>
+                          <div className="pn-row">
+                            <div>
+                              <div style={{ fontWeight: 900 }}>{e.vendor}</div>
+                              <div className="pn-small pn-muted">{e.date} • {e.category}</div>
+                            </div>
+                            <div style={{ fontWeight: 900 }}>{money(e.amount)}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                  title="Click to drill down"
+                >
+                  <div className="pn-row">
+                    <div>
+                      <div style={{ fontWeight: 900 }}>{r.vendor}</div>
+                      <div className="pn-small pn-muted">{r.rows.length} transactions</div>
+                    </div>
+                    <div style={{ fontWeight: 900 }}>{money(r.total)}</div>
+                  </div>
+                </button>
+              ));
+            })()}
+            {filteredExpenses.length === 0 && <div className="pn-small pn-muted">No expenses match your filters.</div>}
+          </div>
+        )}
+
+        {kind === "category_month" && (
+          <div className="pn-list" style={{ marginTop: 12 }}>
+            {(() => {
+              const map = new Map<string, { month: string; category: string; total: number; rows: CatMonthRow[] }>();
+              const add = (month: string, category: string, amount: number, row: CatMonthRow) => {
+                const k = `${month}::${category}`;
+                const cur = map.get(k) || { month, category, total: 0, rows: [] as CatMonthRow[] };
+                cur.total += amount;
+                cur.rows.push(row);
+                map.set(k, cur);
+              };
+              for (const e of filteredExpenses) add(monthKey(e.date), e.category || "Uncategorized", e.amount, { type: "expense", ...e });
+              for (const i of filteredIncome) add(monthKey(i.date), i.category || "Uncategorized", i.amount, { type: "income", ...i });
+              const rows = Array.from(map.values()).sort((a, b) => (a.month === b.month ? b.total - a.total : (a.month < b.month ? 1 : -1)));
+              let lastMonth = "";
+              return rows.map((r) => {
+                const header = r.month !== lastMonth;
+                lastMonth = r.month;
+                return (
+                  <div key={`${r.month}:${r.category}`}>
+                    {header && <div className="pn-small pn-muted" style={{ marginTop: 14, fontWeight: 850 }}>{r.month}</div>}
+                    <button
+                      className="pn-navBtn"
+                      type="button"
+                      onClick={() => openDrill(`${r.month} • ${r.category}`, (
+                        <div className="pn-list">
+                          {r.rows.map((x) => (
+                            <div key={x.id} className="pn-item" style={{ background:"rgba(0,0,0,.12)" }}>
+                              <div className="pn-row">
+                                <div>
+                                  <div style={{ fontWeight: 900 }}>{x.type === "expense" ? x.vendor : x.source}</div>
+                                  <div className="pn-small pn-muted">{x.date} • {x.type}</div>
+                                </div>
+                                <div style={{ fontWeight: 900 }}>{money(x.amount)}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                      title="Click to drill down"
+                    >
+                      <div className="pn-row">
+                        <div>
+                          <div style={{ fontWeight: 900 }}>{r.category}</div>
+                          <div className="pn-small pn-muted">{r.rows.length} rows</div>
+                        </div>
+                        <div style={{ fontWeight: 900 }}>{money(r.total)}</div>
+                      </div>
+                    </button>
+                  </div>
+                );
+              });
+            })()}
+          </div>
+        )}
+
+        {kind === "ledger" && (
+          <div className="pn-item" style={{ marginTop: 12 }}>
+            <div className="pn-small pn-muted" style={{ fontWeight: 850, marginBottom: 8 }}>Ledger types</div>
+            <div style={{ display:"flex", gap: 10, flexWrap:"wrap" }}>
+              {(["captures","expenses","income"] as const).map((t) => (
+                <label key={t} className="pn-pill" style={{ cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={ledgerTypes.includes(t)}
+                    onChange={(e) => {
+                      const next = new Set(ledgerTypes);
+                      if (e.target.checked) next.add(t); else next.delete(t);
+                      setLedgerTypes(Array.from(next));
+                    }}
+                    style={{ marginRight: 8 }}
+                  />
+                  {t}
+                </label>
+              ))}
+            </div>
+            <div className="pn-list" style={{ marginTop: 12 }}>
+              {(() => {
+                const rows: { id: string; date: string; label: string; type: string; amount?: number; meta?: string }[] = [];
+                if (ledgerTypes.includes("captures")) {
+                  for (const c of filteredCaptures) {
+                    rows.push({ id: c.id, date: isoDay(c.createdAt), label: c.title, type: `capture:${c.kind}`, meta: c.approvedCategory || c.suggested?.[0]?.category || "inbox" });
+                  }
+                }
+                if (ledgerTypes.includes("expenses")) {
+                  for (const e of filteredExpenses) {
+                    rows.push({ id: e.id, date: e.date, label: e.vendor, type: "expense", amount: e.amount, meta: e.category });
+                  }
+                }
+                if (ledgerTypes.includes("income")) {
+                  for (const i of filteredIncome) {
+                    rows.push({ id: i.id, date: i.date, label: i.source, type: "income", amount: i.amount, meta: i.category });
+                  }
+                }
+                rows.sort((a, b) => (a.date === b.date ? a.id.localeCompare(b.id) : (a.date < b.date ? 1 : -1)));
+                return rows.map((r) => (
+                  <div key={`${r.type}:${r.id}`} className="pn-item" style={{ background:"rgba(0,0,0,.12)" }}>
+                    <div className="pn-row">
+                      <div>
+                        <div style={{ fontWeight: 900 }}>{r.label}</div>
+                        <div className="pn-small pn-muted">{r.date} • {r.type}{r.meta ? ` • ${r.meta}` : ""}</div>
+                      </div>
+                      {typeof r.amount === "number" && <div style={{ fontWeight: 900 }}>{money(r.amount)}</div>}
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+        )}
+
+        {kind === "captures" && (
           <div className="pn-list" style={{ marginTop: 12 }}>
             {filteredCaptures.map((i) => {
               const cat = i.approvedCategory || i.suggested?.[0]?.category || "inbox";
@@ -195,7 +587,7 @@ export function ReportsModule(props: { data: AppData }) {
           </div>
         )}
 
-        {tab === "money" && (
+        {kind === "money" && (
           <div className="pn-layout" style={{ gridTemplateColumns: "repeat(2, minmax(0,1fr))", marginTop: 12 }}>
             <Card title="Expenses (filtered)" subtitle="By date + category filters.">
               <div className="pn-kpiNum">{money(expenseTotal)}</div>
@@ -217,7 +609,7 @@ export function ReportsModule(props: { data: AppData }) {
               </div>
             </Card>
 
-            <Card title="Bills (all)" subtitle="Bills don’t currently store dates, so they aren’t date-filtered.">
+            <Card title="Bills (all)" subtitle="Bills don’t currently store dates (QuickBooks-like billing dates can be added next).">
               <div className="pn-kpiNum">{props.data.bills.length}</div>
               <div className="pn-small pn-muted">{dueBills.length} due/late</div>
               <div className="pn-list" style={{ marginTop: 10 }}>
@@ -241,7 +633,7 @@ export function ReportsModule(props: { data: AppData }) {
           </div>
         )}
 
-        {tab === "exports" && (
+        {kind === "exports" && (
           <div className="pn-list" style={{ marginTop: 12 }}>
             <div className="pn-item">
               <div style={{ fontWeight: 900 }}>Export filtered report (JSON)</div>
@@ -252,9 +644,10 @@ export function ReportsModule(props: { data: AppData }) {
                   onClick={() => {
                     const payload = {
                       range: { start, end },
-                      filters: { captureKind, captureCategory, expenseCategory },
+                      filters: { captureKind, captureCategory, expenseCategory, incomeCategory, ledgerTypes },
                       captures: filteredCaptures,
                       expenses: filteredExpenses,
+                      income: filteredIncome,
                       bills: props.data.bills,
                       legal: props.data.legal,
                     };
@@ -274,6 +667,12 @@ export function ReportsModule(props: { data: AppData }) {
           </div>
         )}
       </Card>
+
+      {drillOpen && (
+        <Modal title={drillTitle} onClose={() => setDrillOpen(false)}>
+          {drillBody}
+        </Modal>
+      )}
     </div>
   );
 }

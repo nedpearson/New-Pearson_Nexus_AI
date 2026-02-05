@@ -11,7 +11,7 @@ export type NavItem = {
   label: string;
   icon: string;
   hint: string;
-  orb: "blue"|"amber"|"lime";
+  orb: "blue" | "amber" | "lime" | "pink";
 };
 
 export const NAV: NavItem[] = [
@@ -19,6 +19,6 @@ export const NAV: NavItem[] = [
   { route: "/capture",   label: "Capture",   icon: "📸", hint: "Photo / video / voice", orb:"lime" },
   { route: "/documents", label: "Documents", icon: "📄", hint: "Organize & approve", orb:"blue" },
   { route: "/finances",  label: "Finances",  icon: "💳", hint: "Bills & expenses", orb:"amber" },
-  { route: "/legal",     label: "Legal",     icon: "⚖️", hint: "Notes & case builder", orb:"pink" as any },
+  { route: "/legal",     label: "Legal",     icon: "⚖️", hint: "Notes & case builder", orb:"pink" },
   { route: "/admin",     label: "Admin",     icon: "🧠", hint: "Categories & settings", orb:"amber" }
 ];

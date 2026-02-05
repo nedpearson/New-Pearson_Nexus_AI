@@ -29,6 +29,18 @@ export type AppData = {
   categories: Category[];
   library: LibraryItem[];
   learning: LearningRule[];
+  /**
+   * Optional income rows (for Profit & Loss style reporting).
+   * Kept optional for backward compatibility with older saved data.
+   */
+  income?: {
+    id: string;
+    source: string;
+    amount: number;
+    date: string; // ISO yyyy-mm-dd
+    category: string;
+    notes?: string;
+  }[];
   bills: {
     id: string;
     name: string;

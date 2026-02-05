@@ -54,9 +54,9 @@ export function loadLayout(fallback: LayoutState, scope = "personal"): LayoutSta
     return {
       ...fallback,
       ...parsed,
-      prefs: { ...(fallback.prefs || {}), ...((parsed as any).prefs || {}) },
+      prefs: { ...(fallback.prefs || {}), ...(parsed.prefs || {}) },
       // Deep-merge enabled flags so new defaults don't get wiped by old saves.
-      enabled: { ...(fallback.enabled || {}), ...((parsed as any).enabled || {}) },
+      enabled: { ...(fallback.enabled || {}), ...(parsed.enabled || {}) },
     };
   } catch {
     return fallback;

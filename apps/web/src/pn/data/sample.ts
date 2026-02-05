@@ -45,6 +45,10 @@ export const SAMPLE_DATA: AppData = {
       approvedCategory: "legal"
     }
   ],
+  income: [
+    { id: "i1", source: "Client payment", amount: 650.00, date: new Date(Date.now()-86400000*12).toISOString().slice(0,10), category: "Work", notes: "Example income row" },
+    { id: "i2", source: "Refund", amount: 42.50, date: new Date(Date.now()-86400000*6).toISOString().slice(0,10), category: "Home & Life" },
+  ],
   bills: [
     { id: "b1", name: "Electric",      amount: 164.22, dueDay: 15, website: "https://example.com/pay", autopay: false, status: "due" },
     { id: "b2", name: "Internet",      amount: 79.99,  dueDay: 7,  website: "https://example.com/pay", autopay: true,  status: "ok" },
