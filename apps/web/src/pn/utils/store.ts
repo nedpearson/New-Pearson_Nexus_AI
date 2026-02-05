@@ -14,6 +14,14 @@ export type LayoutState = {
   mobileOrder: ModuleKey[];
   userTier: Tier;
   /**
+   * Small UI preferences (Admin-controlled).
+   * Keep optional to preserve older saved layouts.
+   */
+  prefs?: {
+    /** Show expanded drill-downs (keeps default UI simple). */
+    showMore?: boolean;
+  };
+  /**
    * Feature visibility switches (Admin-controlled).
    * If a key is missing, fall back to the default for the current mode.
    */
@@ -46,6 +54,7 @@ export function loadLayout(fallback: LayoutState, scope = "personal"): LayoutSta
     return {
       ...fallback,
       ...parsed,
+      prefs: { ...(fallback.prefs || {}), ...((parsed as any).prefs || {}) },
       // Deep-merge enabled flags so new defaults don't get wiped by old saves.
       enabled: { ...(fallback.enabled || {}), ...((parsed as any).enabled || {}) },
     };

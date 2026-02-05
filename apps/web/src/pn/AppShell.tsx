@@ -12,9 +12,10 @@ import { DashboardModule } from "./modules/DashboardModule";
 import { DocumentsModule } from "./modules/DocumentsModule";
 import { FinancesModule } from "./modules/FinancesModule";
 import { LegalModule } from "./modules/LegalModule";
+import { ReportsModule } from "./modules/ReportsModule";
 import { AdminModule } from "./modules/AdminModule";
 
-const SIDEBAR_KEYS: ModuleKey[] = ["dashboard", "documents", "finances", "legal", "admin"];
+const SIDEBAR_KEYS: ModuleKey[] = ["dashboard", "finances", "legal", "documents", "reports", "admin"];
 
 const GUIDE_LINKS: { label: string; href: string }[] = [
   { label: "Install on Phone", href: "/INSTALL_ON_PHONE_GUIDE.md" },
@@ -54,12 +55,12 @@ export function AppShell() {
     documents: true,
     finances: true,
     legal: true,
+    reports: true,
     admin: true,
     // business-only keys remain off unless you bring them back later
     clients: false,
     invoices: false,
     projects: false,
-    reports: false,
     guides: false,
   }), []);
 
@@ -69,6 +70,7 @@ export function AppShell() {
     mobileOrder: defaultMobileOrder,
     userTier: "Pro",
     enabled: defaultEnabled,
+    prefs: { showMore: false },
   };
 
   const [layout, setLayout] = useState<LayoutState>(() => fallbackLayout);
@@ -184,7 +186,9 @@ export function AppShell() {
   }
 
   function drilldownsFor(k: ModuleKey): { label: string; href?: string }[] {
+    const showMore = layout.prefs?.showMore === true;
     if (k === "dashboard") {
+      const basicGuides = showMore ? GUIDE_LINKS : GUIDE_LINKS.slice(0, 2);
       return mode === "business"
         ? [
           { label: "Business drill-downs" },
@@ -193,20 +197,25 @@ export function AppShell() {
           { label: "Projects" },
           { label: "Reports" },
           { label: "Guides" },
-          ...GUIDE_LINKS,
+          ...basicGuides,
         ]
         : [
           { label: "Personal drill-downs" },
           { label: "Today" },
           { label: "Pinned" },
           { label: "Guides" },
-          ...GUIDE_LINKS,
+          ...basicGuides,
         ];
     }
     if (k === "documents") {
-      const cats = (data.categories || []).map((c) => c.label).slice(0, 6);
+      const maxCats = showMore ? 10 : 6;
+      const cats = (data.categories || []).map((c) => c.label).slice(0, maxCats);
       const more = Math.max(0, (data.categories || []).length - cats.length);
       const out = [
+        { label: "Upload file" },
+        { label: "Voice" },
+        { label: "Video" },
+        { label: "Notes" },
         { label: "Categories" },
         ...cats.map((c) => ({ label: c })),
       ];
@@ -220,11 +229,13 @@ export function AppShell() {
           { label: "Expenses" },
           { label: "Receipts" },
           { label: "Payment links" },
+          ...(showMore ? [{ label: "Exports" }, { label: "Monthly summary" }] : []),
         ]
         : [
           { label: "Bills" },
           { label: "Expenses" },
           { label: "Payment links" },
+          ...(showMore ? [{ label: "Exports" }, { label: "Monthly summary" }] : []),
         ];
     }
     if (k === "legal") {
@@ -234,16 +245,27 @@ export function AppShell() {
           { label: "Issues" },
           { label: "Evidence" },
           { label: "Open guide", href: "/FINANCIAL_LEGAL_GUIDE.md" },
+          ...(showMore ? [{ label: "Court dates" }, { label: "Deadlines" }] : []),
         ]
         : [
           { label: "Divorce" },
           { label: "Custody" },
           { label: "Evidence" },
           { label: "Open guide", href: "/FINANCIAL_LEGAL_GUIDE.md" },
+          ...(showMore ? [{ label: "Court dates" }, { label: "Deadlines" }] : []),
         ];
+    }
+    if (k === "reports") {
+      return [
+        { label: "Summary" },
+        { label: "Insights" },
+        { label: "Exports" },
+        ...(showMore ? [{ label: "Weekly" }, { label: "Monthly" }, { label: "Category trends" }] : []),
+      ];
     }
     if (k === "admin") {
       return [
+        { label: "Integrations" },
         { label: "Tier" },
         { label: "Reorder tabs" },
         { label: "Categories" },
@@ -276,11 +298,7 @@ export function AppShell() {
       case "documents": return { t: "Capture", s: "Voice/video/notes — approve the category. It learns." };
       case "finances":  return { t: "Money", s: "Bills + expenses + quick pay links in one place." };
       case "legal":     return { t: "Legal", s: "Personal, divorce, custody — organized and easy." };
-      case "clients":   return { t: "Clients", s: "Contacts, notes, status." };
-      case "invoices":  return { t: "Invoices", s: "Create, send, track, export." };
-      case "projects":  return { t: "Projects", s: "Work items + deliverables." };
-      case "reports":   return { t: "Reports", s: "KPIs + summaries." };
-      case "guides":    return { t: "Guides", s: "Drill‑down docs & how‑tos." };
+      case "reports":   return { t: "Reports", s: "Summaries, exports, and simple insights." };
       case "admin":     return { t: "Admin", s: "Tier + drag/drop tab order + categories." };
       default:          return { t: "PearsonNexusAI", s: "Prototype" };
     }
@@ -293,6 +311,7 @@ export function AppShell() {
       {layout.active === "documents" && <DocumentsModule data={data} setData={setData} />}
       {layout.active === "finances"  && <FinancesModule data={data} />}
       {layout.active === "legal"     && <LegalModule data={data} setData={setData} />}
+      {layout.active === "reports"   && <ReportsModule data={data} />}
 
       {layout.active === "admin"     && <AdminModule data={data} setData={setData} layout={layout} setLayout={setLayout} scope={scope} modules={activeModules} />}
     </>

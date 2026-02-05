@@ -40,6 +40,15 @@ export function AdminModule(props: {
     saveLayout(next, props.scope || "personal");
   }
 
+  function setPrefShowMore(nextValue: boolean) {
+    const next: LayoutState = {
+      ...props.layout,
+      prefs: { ...(props.layout.prefs || {}), showMore: nextValue },
+    };
+    props.setLayout(next);
+    saveLayout(next, props.scope || "personal");
+  }
+
   function addCategory() {
     const key = "cat_" + Math.random().toString(16).slice(2, 8);
     const nextCat: Category = { key, label: "New Category", color: "cyan" };
@@ -83,6 +92,39 @@ export function AdminModule(props: {
 
   return (
     <div className="pn-col">
+      <Card
+        title="Integrations"
+        subtitle="Keep it simple by default. Turn on advanced drill‑downs and connect services here."
+        right={<Pill>Prototype</Pill>}
+      >
+        <div className="pn-list">
+          <label className="pn-item" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <div>
+              <div style={{ fontWeight: 900 }}>Show more drill‑downs</div>
+              <div className="pn-small pn-muted">Expands sidebar subcategories (keeps main tabs unchanged).</div>
+            </div>
+            <input
+              type="checkbox"
+              checked={props.layout.prefs?.showMore === true}
+              onChange={(e) => setPrefShowMore(e.target.checked)}
+              style={{ width: 18, height: 18 }}
+              aria-label="Show more drill-downs"
+              title="Show more drill-downs"
+            />
+          </label>
+          <div className="pn-item" style={{ background: "rgba(0,0,0,.12)" }}>
+            <div style={{ fontWeight: 900 }}>Supabase (recommended)</div>
+            <div className="pn-small pn-muted">
+              Set your keys in Railway variables (or `apps/web/.env` locally). Canonical names:
+              <div style={{ marginTop: 6, fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace", fontSize: 12 }}>
+                VITE_SUPABASE_URL<br />
+                VITE_SUPABASE_ANON_KEY
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+
       <Card title="Admin (Prototype)" subtitle="Tier, tab order (desktop + mobile), categories." right={<Pill>Local only</Pill>}>
         <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
           <Button onClick={() => setTier("Free")}>Set Tier: Free</Button>
@@ -101,6 +143,7 @@ export function AdminModule(props: {
             const alwaysOn =
               m.key === "dashboard" ||
               m.key === "documents" ||
+              m.key === "reports" ||
               m.key === "finances" ||
               m.key === "legal" ||
               m.key === "admin";
