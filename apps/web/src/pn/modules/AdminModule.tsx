@@ -97,7 +97,13 @@ export function AdminModule(props: {
       >
         <div className="pn-list">
           {(props.modules || MODULES).map((m) => {
-            const alwaysOn = m.key === "dashboard" || m.key === "admin";
+            // Guardrail: these are the core tabs and always visible in both Personal + Business.
+            const alwaysOn =
+              m.key === "dashboard" ||
+              m.key === "documents" ||
+              m.key === "finances" ||
+              m.key === "legal" ||
+              m.key === "admin";
             const checked = alwaysOn ? true : (props.layout.enabled?.[m.key] !== false);
             return (
               <label key={m.key} className="pn-item" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>

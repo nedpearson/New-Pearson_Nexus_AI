@@ -2,7 +2,7 @@ import type { ModuleItem, Tier } from "./types";
 
 export const MODULES: ModuleItem[] = [
   { key: "dashboard", title: "Home",     subtitle: "Your daily hub",                    tier: "Free", accent: "cyan",   icon: "🏠" },
-  { key: "documents", title: "Capture",  subtitle: "Photo • Video • Voice • Notes",    tier: "Free", accent: "blue",   icon: "📸" },
+  { key: "documents", title: "Capture / Documents",  subtitle: "Photo • Video • Voice • Files", tier: "Free", accent: "blue",   icon: "📸" },
   { key: "finances",  title: "Money",    subtitle: "Bills • Expenses • Payment links", tier: "Plus", accent: "amber",  icon: "💳" },
   { key: "legal",     title: "Legal",    subtitle: "Divorce • Custody • Personal",     tier: "Plus", accent: "rose",   icon: "⚖️" },
   { key: "admin",     title: "Admin",    subtitle: "Reorder tabs • Categories • Tier", tier: "Pro",  accent: "purple", icon: "🛠️" },

@@ -6,16 +6,22 @@ import { loadData, loadLayout, saveData, saveLayout } from "./utils/store";
 import type { LayoutState } from "./utils/store";
 import { Brand } from "./components/Brand";
 import { Button, Card, Pill } from "./components/kit";
-import { BUSINESS_DEFAULT_DESKTOP_ORDER, BUSINESS_DEFAULT_MOBILE_ORDER, BUSINESS_MODULES } from "../biz/registry";
 import { BusinessDashboardModule } from "../biz/modules/BusinessDashboardModule";
-import { PlaceholderModule } from "../biz/modules/PlaceholderModule";
-import { GuidesModule } from "../biz/modules/GuidesModule";
 
 import { DashboardModule } from "./modules/DashboardModule";
 import { DocumentsModule } from "./modules/DocumentsModule";
 import { FinancesModule } from "./modules/FinancesModule";
 import { LegalModule } from "./modules/LegalModule";
 import { AdminModule } from "./modules/AdminModule";
+
+const SIDEBAR_KEYS: ModuleKey[] = ["dashboard", "documents", "finances", "legal", "admin"];
+
+const GUIDE_LINKS: { label: string; href: string }[] = [
+  { label: "Install on Phone", href: "/INSTALL_ON_PHONE_GUIDE.md" },
+  { label: "Mobile App Guide", href: "/MOBILE_APP_GUIDE.md" },
+  { label: "PWA Deployment", href: "/PWA_DEPLOYMENT_GUIDE.md" },
+  { label: "Financial + Legal", href: "/FINANCIAL_LEGAL_GUIDE.md" },
+];
 
 function dotClass(accent: ModuleItem["accent"]) {
   return accent === "cyan" ? "pn-dot pn-cyan"
@@ -38,43 +44,24 @@ export function AppShell() {
   }, [mode]);
 
   const scope = mode; // namespace for localStorage (layout + data)
-  const activeModules = mode === "business" ? BUSINESS_MODULES : MODULES;
-  const defaultDesktopOrder = mode === "business" ? BUSINESS_DEFAULT_DESKTOP_ORDER : DEFAULT_DESKTOP_ORDER;
-  const defaultMobileOrder = mode === "business" ? BUSINESS_DEFAULT_MOBILE_ORDER : DEFAULT_MOBILE_ORDER;
+  const activeModules = MODULES; // same sidebar tabs for Personal + Business
+  const defaultDesktopOrder = DEFAULT_DESKTOP_ORDER;
+  const defaultMobileOrder = DEFAULT_MOBILE_ORDER;
 
   // Keep defaults minimal; Admin can enable additional tabs.
-  const defaultEnabled = useMemo((): Partial<Record<ModuleKey, boolean>> => {
-    if (mode === "business") {
-      return {
-        dashboard: true,
-        clients: true,
-        documents: true,
-        finances: true,
-        legal: true,
-        // hidden by default (enable in Admin)
-        invoices: false,
-        projects: false,
-        reports: false,
-        guides: false,
-        admin: true,
-      };
-    }
-    // personal
-    return {
-      dashboard: true,
-      documents: true,
-      finances: true,
-      legal: true,
-      // hidden by default (enable in Admin)
-      admin: true,
-      // business-only keys default off
-      clients: false,
-      invoices: false,
-      projects: false,
-      reports: false,
-      guides: false,
-    };
-  }, [mode]);
+  const defaultEnabled = useMemo((): Partial<Record<ModuleKey, boolean>> => ({
+    dashboard: true,
+    documents: true,
+    finances: true,
+    legal: true,
+    admin: true,
+    // business-only keys remain off unless you bring them back later
+    clients: false,
+    invoices: false,
+    projects: false,
+    reports: false,
+    guides: false,
+  }), []);
 
   const fallbackLayout: LayoutState = {
     active: "dashboard",
@@ -179,15 +166,91 @@ export function AppShell() {
   const enabled = layout.enabled || defaultEnabled;
   const isEnabled = (k: ModuleKey) => enabled[k] !== false; // default true unless explicitly false
 
-  const desktopItems = layout.desktopOrder
+  // Sidebar is identical for Personal + Business: fixed, core tabs only.
+  const desktopItems = SIDEBAR_KEYS
     .filter((k) => isEnabled(k))
     .map((k) => byKey.get(k))
     .filter(Boolean) as ModuleItem[];
 
-  const mobileItems = layout.mobileOrder
+  const mobileItems = SIDEBAR_KEYS
     .filter((k) => isEnabled(k))
     .map((k) => byKey.get(k))
     .filter(Boolean) as ModuleItem[];
+
+  function openGuide(e: React.MouseEvent, href: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    window.open(href, "_blank", "noreferrer");
+  }
+
+  function drilldownsFor(k: ModuleKey): { label: string; href?: string }[] {
+    if (k === "dashboard") {
+      return mode === "business"
+        ? [
+          { label: "Business drill-downs" },
+          { label: "Clients" },
+          { label: "Invoices" },
+          { label: "Projects" },
+          { label: "Reports" },
+          { label: "Guides" },
+          ...GUIDE_LINKS,
+        ]
+        : [
+          { label: "Personal drill-downs" },
+          { label: "Today" },
+          { label: "Pinned" },
+          { label: "Guides" },
+          ...GUIDE_LINKS,
+        ];
+    }
+    if (k === "documents") {
+      const cats = (data.categories || []).map((c) => c.label).slice(0, 6);
+      const more = Math.max(0, (data.categories || []).length - cats.length);
+      const out = [
+        { label: "Categories" },
+        ...cats.map((c) => ({ label: c })),
+      ];
+      if (more) out.push({ label: `+${more} more…` });
+      return out;
+    }
+    if (k === "finances") {
+      return mode === "business"
+        ? [
+          { label: "Invoices" },
+          { label: "Expenses" },
+          { label: "Receipts" },
+          { label: "Payment links" },
+        ]
+        : [
+          { label: "Bills" },
+          { label: "Expenses" },
+          { label: "Payment links" },
+        ];
+    }
+    if (k === "legal") {
+      return mode === "business"
+        ? [
+          { label: "Contracts" },
+          { label: "Issues" },
+          { label: "Evidence" },
+          { label: "Open guide", href: "/FINANCIAL_LEGAL_GUIDE.md" },
+        ]
+        : [
+          { label: "Divorce" },
+          { label: "Custody" },
+          { label: "Evidence" },
+          { label: "Open guide", href: "/FINANCIAL_LEGAL_GUIDE.md" },
+        ];
+    }
+    if (k === "admin") {
+      return [
+        { label: "Tier" },
+        { label: "Reorder tabs" },
+        { label: "Categories" },
+      ];
+    }
+    return [];
+  }
 
   function setActive(k: ModuleKey) {
     setLayout(prev => ({ ...prev, active: k }));
@@ -231,12 +294,6 @@ export function AppShell() {
       {layout.active === "finances"  && <FinancesModule data={data} />}
       {layout.active === "legal"     && <LegalModule data={data} setData={setData} />}
 
-      {layout.active === "clients"   && <PlaceholderModule title="Clients" subtitle="Contacts, notes, status (prototype)" />}
-      {layout.active === "invoices"  && <PlaceholderModule title="Invoices" subtitle="Create, send, track, export (prototype)" />}
-      {layout.active === "projects"  && <PlaceholderModule title="Projects" subtitle="Work items + deliverables (prototype)" />}
-      {layout.active === "reports"   && <PlaceholderModule title="Reports" subtitle="KPIs + summaries (prototype)" />}
-      {layout.active === "guides"    && <GuidesModule />}
-
       {layout.active === "admin"     && <AdminModule data={data} setData={setData} layout={layout} setLayout={setLayout} scope={scope} modules={activeModules} />}
     </>
   );
@@ -260,6 +317,7 @@ export function AppShell() {
                 {desktopItems.map(m => {
                   const allowed = isTierAllowed(layout.userTier as Tier, m.tier);
                   const active = layout.active === m.key;
+                  const drill = drilldownsFor(m.key);
                   return (
                     <button
                       key={m.key}
@@ -277,6 +335,36 @@ export function AppShell() {
                           <div>
                             <div style={{ fontWeight: 900 }}>{m.title}</div>
                             <div className="pn-small pn-muted">{m.subtitle}</div>
+                            {!!drill.length && (
+                              <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
+                                {drill.map((d) => {
+                                  const isLink = Boolean(d.href);
+                                  const style: React.CSSProperties = {
+                                    fontSize: 11,
+                                    lineHeight: 1,
+                                    padding: "6px 8px",
+                                    borderRadius: 999,
+                                    border: "1px solid rgba(255,255,255,.14)",
+                                    background: "rgba(255,255,255,.06)",
+                                    color: "rgba(238,242,255,.78)",
+                                    cursor: isLink ? "pointer" : "default",
+                                  };
+                                  return isLink ? (
+                                    <a
+                                      key={d.label + d.href}
+                                      href={d.href}
+                                      onClick={(e) => openGuide(e, d.href!)}
+                                      style={style}
+                                      title={d.label}
+                                    >
+                                      {d.label}
+                                    </a>
+                                  ) : (
+                                    <span key={d.label} style={style} title={d.label}>{d.label}</span>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
                         </div>
                         {!allowed && <span className="pn-badge">🔒 {m.tier}</span>}
