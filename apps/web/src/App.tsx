@@ -1,6 +1,7 @@
 import React from "react";
 import { AppShell } from "./pn/AppShell";
 import "./pn/pn.css";
+import { MobileHome } from "./mobile/MobileHome";
 
 // --- PNX_SAFE_MODE_V1 ---
 const __PNX_SAFE =
@@ -22,6 +23,10 @@ function __PNX_SafeModeScreen() {
 }
 export default function App() {
   if (__PNX_SAFE) return <__PNX_SafeModeScreen />;
+  // Mobile-first capture shell (route: /m). Guarded so it doesn't affect existing modules.
+  if (typeof window !== "undefined" && window.location.pathname.startsWith("/m")) {
+    return <MobileHome />;
+  }
   return <AppShell />;
 }
 

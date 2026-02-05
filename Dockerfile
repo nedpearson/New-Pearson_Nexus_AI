@@ -12,12 +12,15 @@ FROM node:20-alpine AS run
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Install static server globally (no dependency ambiguity)
-RUN npm i -g serve@14.2.5 && serve --version
+# Install runtime dependencies (Express server + shared deps)
+COPY package.json package-lock.json ./
+COPY apps/web/package.json ./apps/web/package.json
+RUN npm ci --omit=dev
 
-# Copy build output
-COPY --from=build /app/apps/web/dist ./dist
+# Copy build output + server script
+COPY --from=build /app/apps/web/dist ./apps/web/dist
+COPY apps/web/scripts ./apps/web/scripts
 
 # Railway injects PORT; fall back to 8080 for local runs
 EXPOSE 8080
-CMD ["sh","-lc","serve -s dist -l ${PORT:-8080}"]
+CMD ["node","apps/web/scripts/start.mjs"]

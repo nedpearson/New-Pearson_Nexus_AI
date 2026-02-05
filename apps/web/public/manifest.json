@@ -2,7 +2,7 @@
   "name": "PearsonNexusAI",
   "short_name": "Nexus AI",
   "description": "PearsonNexusAI Prototype",
-  "start_url": "/",
+  "start_url": "/m",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0b1020",

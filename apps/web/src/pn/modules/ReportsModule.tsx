@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import type { AppData } from "../data/model";
 import { Card, Button, Pill } from "../components/kit";
 
@@ -34,6 +34,17 @@ type CatMonthRow = ({ type: "expense" } & ExpenseRow) | ({ type: "income" } & In
 
 function presetsKey(view: "personal" | "business") {
   return `pnx.reportPresets.v1.${view}`;
+}
+
+function readPresets(view: "personal" | "business"): ReportPreset[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(presetsKey(view));
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? (parsed as ReportPreset[]) : [];
+  } catch {
+    return [];
+  }
 }
 
 function rid(prefix: string) {
@@ -101,21 +112,14 @@ export function ReportsModule(props: { data: AppData; view?: "personal" | "busin
   const [ledgerTypes, setLedgerTypes] = useState<string[]>(["captures", "expenses", "income"]);
 
   const [presetName, setPresetName] = useState("");
-  const [presets, setPresets] = useState<ReportPreset[]>([]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const raw = localStorage.getItem(presetsKey(view));
-      const parsed = raw ? JSON.parse(raw) : [];
-      setPresets(Array.isArray(parsed) ? (parsed as ReportPreset[]) : []);
-    } catch {
-      setPresets([]);
-    }
-  }, [view]);
+  const [presetsByView, setPresetsByView] = useState<Record<"personal" | "business", ReportPreset[]>>(() => ({
+    personal: readPresets("personal"),
+    business: readPresets("business"),
+  }));
+  const presets = presetsByView[view] || [];
 
   function savePresets(next: ReportPreset[]) {
-    setPresets(next);
+    setPresetsByView((prev) => ({ ...prev, [view]: next }));
     try { localStorage.setItem(presetsKey(view), JSON.stringify(next)); } catch { /* ignore */ }
   }
 

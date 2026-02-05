@@ -2,6 +2,8 @@ import React from "react";
 import type { AppData } from "../data/model";
 import { Tile, Card, Button, Pill } from "../components/kit";
 import type { ModuleKey } from "../types";
+import { MobileAppQRCode } from "../../components/MobileAppQRCode";
+import { SyncButton } from "../../components/SyncButton";
 
 export function DashboardModule(props: { data: AppData; go: (k: ModuleKey) => void; userTier: "Free"|"Plus"|"Pro" }) {
   const dueBills = props.data.bills.filter(b => b.status === "due" || b.status === "late").length;
@@ -19,6 +21,17 @@ export function DashboardModule(props: { data: AppData; go: (k: ModuleKey) => vo
             <Pill>Desktop + Mobile</Pill>
             <Pill>Capture + Approval</Pill>
             <Pill>Learning</Pill>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap", marginTop: 12 }}>
+          <MobileAppQRCode path="/m" size={92} />
+          <div style={{ minWidth: 240 }}>
+            <div style={{ fontWeight: 900 }}>Scan to open on mobile.</div>
+            <div className="pn-small pn-muted">Add to Home Screen to install for offline use.</div>
+            <div style={{ marginTop: 8 }}>
+              <SyncButton compact />
+            </div>
           </div>
         </div>
 

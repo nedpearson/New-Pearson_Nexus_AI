@@ -4,19 +4,21 @@
  * (We intentionally avoid aggressive caching here to prevent stale builds.)
  */
 
-const CACHE = "pnx-shell-v1";
+const SHELL = "pnx-shell-v2";
+const ASSETS = "pnx-assets-v1";
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
   event.waitUntil(
     (async () => {
       try {
-        const cache = await caches.open(CACHE);
+        const cache = await caches.open(SHELL);
         await cache.addAll([
           "/",
           "/index.html",
           "/manifest.json",
           "/logo.png",
+          "/m",
         ]);
       } catch {
         // ignore (offline during install)
@@ -31,7 +33,7 @@ self.addEventListener("activate", (event) => {
       // Clean old caches
       try {
         const keys = await caches.keys();
-        await Promise.all(keys.map((k) => (k === CACHE ? null : caches.delete(k))));
+        await Promise.all(keys.map((k) => ([SHELL, ASSETS].includes(k) ? null : caches.delete(k))));
       } catch {
         // ignore
       }
@@ -51,11 +53,39 @@ self.addEventListener("fetch", (event) => {
   // Navigations: try network so updates roll out quickly.
   if (req.mode === "navigate") {
     event.respondWith(
-      fetch(req).catch(async () => (await caches.match("/index.html")) || Response.error())
+      fetch(req).catch(async () => (await caches.match("/index.html")) || (await caches.match("/")) || Response.error())
     );
     return;
   }
 
-  // Everything else: just passthrough (no aggressive asset caching).
+  // Runtime cache hashed Vite assets so the app shell works offline after first visit.
+  const p = url.pathname || "";
+  const isAsset =
+    p.startsWith("/assets/") ||
+    p.endsWith(".js") ||
+    p.endsWith(".css") ||
+    p.endsWith(".png") ||
+    p.endsWith(".jpg") ||
+    p.endsWith(".jpeg") ||
+    p.endsWith(".svg") ||
+    p.endsWith(".webp") ||
+    p.endsWith(".ico");
+
+  if (isAsset) {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(ASSETS);
+        const hit = await cache.match(req);
+        if (hit) return hit;
+        try {
+          const fresh = await fetch(req);
+          if (fresh.ok) cache.put(req, fresh.clone()).catch(() => null);
+          return fresh;
+        } catch {
+          return hit || Response.error();
+        }
+      })()
+    );
+  }
 });
 

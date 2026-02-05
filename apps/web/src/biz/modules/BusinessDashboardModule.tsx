@@ -1,6 +1,8 @@
 import React from "react";
 import { Card, Tile } from "../../pn/components/kit";
 import type { ModuleKey } from "../../pn/types";
+import { MobileAppQRCode } from "../../components/MobileAppQRCode";
+import { SyncButton } from "../../components/SyncButton";
 
 export function BusinessDashboardModule(props: { go: (k: ModuleKey) => void }) {
   return (
@@ -15,8 +17,15 @@ export function BusinessDashboardModule(props: { go: (k: ModuleKey) => void }) {
       </Card>
 
       <Card title="Tip" subtitle="Install to your phone Home Screen for fastest access.">
-        <div className="pn-small pn-muted">
-          Use the “Install on Phone” button (or scan the QR) on the header.
+        <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+          <MobileAppQRCode path="/m" size={92} />
+          <div className="pn-small pn-muted" style={{ minWidth: 240 }}>
+            <div style={{ fontWeight: 900, color: "rgba(238,242,255,.92)" }}>Scan to open on mobile.</div>
+            <div>Add to Home Screen to install for offline use.</div>
+            <div style={{ marginTop: 8 }}>
+              <SyncButton compact />
+            </div>
+          </div>
         </div>
       </Card>
     </div>

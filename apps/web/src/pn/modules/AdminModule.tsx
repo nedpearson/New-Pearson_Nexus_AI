@@ -6,6 +6,7 @@ import type { LayoutState } from "../utils/store";
 import { MODULES } from "../registry";
 import type { ModuleItem } from "../types";
 import type { ModuleKey } from "../types";
+import { getSyncToken, setSyncToken } from "../../offline/queue";
 
 function move<T>(arr: T[], from: number, to: number) {
   const copy = [...arr];
@@ -25,6 +26,7 @@ export function AdminModule(props: {
   const moduleMap = useMemo(() => new Map((props.modules || MODULES).map(m => [m.key, m])), [props.modules]);
   const [dragging, setDragging] = useState<string|undefined>(undefined);
   const dragFrom = useRef<number>(-1);
+  const [syncTokenDraft, setSyncTokenDraft] = useState<string>(() => getSyncToken() || "");
 
   function setTier(t: "Free"|"Plus"|"Pro") {
     const next = { ...props.layout, userTier: t };
@@ -113,6 +115,31 @@ export function AdminModule(props: {
               title="Show more drill-downs"
             />
           </label>
+          <div className="pn-item" style={{ background: "rgba(0,0,0,.12)" }}>
+            <div style={{ fontWeight: 900 }}>Offline Sync (Prototype)</div>
+            <div className="pn-small pn-muted" style={{ marginTop: 6 }}>
+              Set a shared sync token on each device to enable “Sync Now”.
+            </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
+              <input
+                className="pn-input"
+                value={syncTokenDraft}
+                onChange={(e) => setSyncTokenDraft(e.target.value)}
+                placeholder="Sync token…"
+                aria-label="Sync token"
+                title="Sync token"
+                style={{ minWidth: 260 }}
+              />
+              <Button
+                variant="primary"
+                onClick={() => setSyncToken(syncTokenDraft)}
+                disabled={!syncTokenDraft.trim()}
+                title="Save token to this browser"
+              >
+                Save token
+              </Button>
+            </div>
+          </div>
           <div className="pn-item" style={{ background: "rgba(0,0,0,.12)" }}>
             <div style={{ fontWeight: 900 }}>Supabase (recommended)</div>
             <div className="pn-small pn-muted">
