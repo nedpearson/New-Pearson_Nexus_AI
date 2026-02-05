@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { MODULES, DEFAULT_DESKTOP_ORDER, DEFAULT_MOBILE_ORDER, isTierAllowed } from "./registry";
+import { DEFAULT_DESKTOP_ORDER, DEFAULT_MOBILE_ORDER, isTierAllowed } from "./registry";
 import type { ModuleKey, ModuleItem, Tier } from "./types";
 import { SAMPLE_DATA } from "./data/sample";
 import { loadData, loadLayout, saveData, saveLayout } from "./utils/store";
@@ -9,6 +9,11 @@ import { Button, Card, Pill } from "./components/kit";
 import { BusinessDashboardModule } from "../biz/modules/BusinessDashboardModule";
 import { GuidesModule } from "../biz/modules/GuidesModule";
 import { PlaceholderModule } from "../biz/modules/PlaceholderModule";
+import { SidebarCustomizeModal } from "./components/SidebarCustomizeModal";
+import { getDefaults } from "./nav/nav.defaults";
+import { getEffectiveNav, validateDefaults } from "./nav/getEffectiveNav";
+import type { SidebarPreferencesV1, ViewKey } from "./nav/nav.types";
+import { defaultPrefs, loadSidebarPrefs, saveSidebarPrefs } from "./nav/sidebarPrefs";
 
 import { DashboardModule } from "./modules/DashboardModule";
 import { DocumentsModule } from "./modules/DocumentsModule";
@@ -16,24 +21,6 @@ import { FinancesModule } from "./modules/FinancesModule";
 import { LegalModule } from "./modules/LegalModule";
 import { ReportsModule } from "./modules/ReportsModule";
 import { AdminModule } from "./modules/AdminModule";
-
-const PERSONAL_EXTRAS: ModuleItem[] = [
-  { key: "guides", title: "Guides", subtitle: "Install + how‑tos + drill‑downs", tier: "Free", accent: "cyan", icon: "🧭" },
-];
-
-const BUSINESS_EXTRAS: ModuleItem[] = [
-  { key: "clients", title: "Clients", subtitle: "Contacts, notes, status", tier: "Free", accent: "cyan", icon: "👥" },
-  { key: "invoices", title: "Invoices", subtitle: "Create, send, track", tier: "Plus", accent: "amber", icon: "🧾" },
-  { key: "projects", title: "Projects", subtitle: "Work items + deliverables", tier: "Plus", accent: "purple", icon: "📁" },
-  { key: "guides", title: "Guides", subtitle: "Install + how‑tos + drill‑downs", tier: "Free", accent: "cyan", icon: "🧭" },
-];
-
-const GUIDE_LINKS: { label: string; href: string }[] = [
-  { label: "Install on Phone", href: "/INSTALL_ON_PHONE_GUIDE.md" },
-  { label: "Mobile App Guide", href: "/MOBILE_APP_GUIDE.md" },
-  { label: "PWA Deployment", href: "/PWA_DEPLOYMENT_GUIDE.md" },
-  { label: "Financial + Legal", href: "/FINANCIAL_LEGAL_GUIDE.md" },
-];
 
 function dotClass(accent: ModuleItem["accent"]) {
   return accent === "cyan" ? "pn-dot pn-cyan"
@@ -56,16 +43,10 @@ export function AppShell() {
   }, [mode]);
 
   const scope = mode; // namespace for localStorage (layout + data)
-  const extraModules = mode === "business" ? BUSINESS_EXTRAS : PERSONAL_EXTRAS;
-  const activeModules = useMemo(() => {
-    // Core tabs are always present; extras are opt-in via "More".
-    // Deduplicate by key in case future registries overlap.
-    const all = [...MODULES, ...extraModules];
-    const seen = new Set<ModuleKey>();
-    return all.filter((m) => (seen.has(m.key) ? false : (seen.add(m.key), true)));
-  }, [extraModules]);
   const defaultDesktopOrder = DEFAULT_DESKTOP_ORDER;
   const defaultMobileOrder = DEFAULT_MOBILE_ORDER;
+  const view: ViewKey = mode;
+  const navDefaults = useMemo(() => getDefaults(view), [view]);
 
   // Keep defaults minimal; Admin can enable additional tabs.
   const defaultEnabled = useMemo((): Partial<Record<ModuleKey, boolean>> => ({
@@ -75,7 +56,7 @@ export function AppShell() {
     legal: true,
     reports: true,
     admin: true,
-    // business-only keys remain off unless you bring them back later
+    // business-only keys remain off (still accessible from defaults in Business view)
     clients: false,
     invoices: false,
     projects: false,
@@ -100,14 +81,23 @@ export function AppShell() {
   const [mobileModalOpen, setMobileModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
+  const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [sidebarPrefs, setSidebarPrefs] = useState<SidebarPreferencesV1>(() => defaultPrefs());
 
   useEffect(() => {
-    setLayout(loadLayout(fallbackLayout, scope));
+    const loadedLayout = loadLayout(fallbackLayout, scope);
+    setLayout(loadedLayout);
     setData(loadData(SAMPLE_DATA, scope));
+    setSidebarPrefs(loadSidebarPrefs(view, loadedLayout, navDefaults));
   }, [scope]);
 
   useEffect(() => { saveLayout(layout, scope); }, [layout, scope]);
   useEffect(() => { saveData(data, scope); }, [data, scope]);
+  useEffect(() => { saveSidebarPrefs(view, sidebarPrefs); }, [view, sidebarPrefs]);
+
+  useEffect(() => {
+    try { validateDefaults(navDefaults); } catch { /* ignore */ }
+  }, [navDefaults]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -182,86 +172,54 @@ export function AppShell() {
     }
   }
 
-  const byKey = useMemo(() => new Map(activeModules.map(m => [m.key, m])), [activeModules]);
-  const enabled = layout.enabled || defaultEnabled;
-  const isEnabled = (k: ModuleKey) => enabled[k] !== false; // default true unless explicitly false
+  const isAdmin = (layout.userTier === "Pro") || (sidebarPrefs.ownerMode === true);
 
-  // Sidebar order is customizable + persisted (drag/drop in sidebar).
-  const desktopItems = useMemo(() => {
-    return layout.desktopOrder
-      .filter((k) => isEnabled(k))
-      .map((k) => byKey.get(k))
-      .filter(Boolean) as ModuleItem[];
-  }, [layout.desktopOrder, enabled, byKey]);
+  const effectiveNav = useMemo(() => {
+    return getEffectiveNav({
+      view,
+      defaults: navDefaults,
+      prefs: sidebarPrefs,
+      userTier: layout.userTier,
+      isAdmin,
+    });
+  }, [view, navDefaults, sidebarPrefs, layout.userTier, isAdmin]);
 
-  const mobileItems = useMemo(() => {
-    return layout.mobileOrder
-      .filter((k) => isEnabled(k))
-      .map((k) => byKey.get(k))
-      .filter(Boolean) as ModuleItem[];
-  }, [layout.mobileOrder, enabled, byKey]);
+  const flatNavItems = useMemo(() => effectiveNav.headers.flatMap((h) => h.items), [effectiveNav.headers]);
 
-  const addableItems = useMemo(() => {
-    const have = new Set(layout.desktopOrder);
-    return extraModules.filter((m) => !have.has(m.key));
-  }, [extraModules, layout.desktopOrder]);
-
-  function move<T>(arr: T[], from: number, to: number) {
-    const copy = [...arr];
-    const [x] = copy.splice(from, 1);
-    copy.splice(to, 0, x);
-    return copy;
-  }
-
-  const [sidebarEdit, setSidebarEdit] = useState(false);
-  const [draggingKey, setDraggingKey] = useState<string|undefined>(undefined);
-  const dragFrom = React.useRef<number>(-1);
-
-  function onDragStart(idx: number, key: string) {
-    dragFrom.current = idx;
-    setDraggingKey(key);
-  }
-
-  function onDropSidebar(toIdx: number) {
-    const fromIdx = dragFrom.current;
-    if (fromIdx < 0 || fromIdx === toIdx) { dragFrom.current = -1; setDraggingKey(undefined); return; }
-    const nextOrder = move(layout.desktopOrder, fromIdx, toIdx);
-    setLayout((prev) => ({ ...prev, desktopOrder: nextOrder, mobileOrder: nextOrder }));
-    dragFrom.current = -1;
-    setDraggingKey(undefined);
-  }
-
-  function addSidebarHeader(key: ModuleKey) {
-    const existing = layout.desktopOrder.includes(key);
-    const nextOrder = existing ? layout.desktopOrder : (() => {
-      const base = [...layout.desktopOrder];
-      const adminIdx = base.indexOf("admin");
-      const insertAt = adminIdx >= 0 ? adminIdx : base.length;
-      base.splice(insertAt, 0, key);
-      return base;
-    })();
-
-    const next: LayoutState = {
-      ...layout,
-      enabled: { ...(layout.enabled || {}), [key]: true },
-      desktopOrder: nextOrder,
-      mobileOrder: layout.mobileOrder.includes(key) ? layout.mobileOrder : [...layout.mobileOrder, key],
-    };
-    setLayout(next);
-    setActive(key);
-  }
+  // Provide a ModuleItem list for the existing Admin module (keep it working).
+  const adminModules = useMemo((): ModuleItem[] => {
+    const seen = new Set<ModuleKey>();
+    const pickAccent = (header: string) =>
+      header === "money" ? "amber"
+        : header === "legal" ? "rose"
+          : header === "admin" ? "purple"
+            : header === "capture_docs" ? "blue"
+              : "cyan";
+    const out: ModuleItem[] = [];
+    for (const it of navDefaults.items) {
+      if (seen.has(it.path)) continue;
+      seen.add(it.path);
+      out.push({
+        key: it.path,
+        title: it.label,
+        subtitle: "",
+        tier: it.minTier || "Free",
+        accent: pickAccent(it.header) as any,
+        icon: it.icon || "•",
+      });
+    }
+    return out;
+  }, [navDefaults.items]);
 
   function setActive(k: ModuleKey) {
     setLayout(prev => ({ ...prev, active: k }));
   }
 
-  // If the currently-active tab is disabled, bounce to dashboard.
+  // If the currently-active item is hidden or admin-gated, bounce to Home.
   useEffect(() => {
-    if (!isEnabled(layout.active)) {
-      setLayout((prev) => ({ ...prev, active: "dashboard" }));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, layout.active, JSON.stringify(enabled)]);
+    const stillVisible = flatNavItems.some((it) => it.path === layout.active);
+    if (!stillVisible) setLayout((prev) => ({ ...prev, active: "dashboard" }));
+  }, [flatNavItems, layout.active]);
 
   function quickCapture() {
     setActive("documents");
@@ -294,7 +252,7 @@ export function AppShell() {
       {layout.active === "invoices"  && <PlaceholderModule title="Invoices" subtitle="Create, send, track, export (prototype)" />}
       {layout.active === "projects"  && <PlaceholderModule title="Projects" subtitle="Work items + deliverables (prototype)" />}
 
-      {layout.active === "admin"     && <AdminModule data={data} setData={setData} layout={layout} setLayout={setLayout} scope={scope} modules={activeModules} />}
+      {layout.active === "admin"     && <AdminModule data={data} setData={setData} layout={layout} setLayout={setLayout} scope={scope} modules={adminModules} />}
     </>
   );
 
@@ -313,81 +271,58 @@ export function AppShell() {
             </div>
 
             <div className="pn-card pn-p" style={{ marginTop: 14 }}>
-              <div className="pn-col">
-                <div className="pn-row" style={{ marginBottom: 10 }}>
-                  <div style={{ fontWeight: 900 }}>Sidebar</div>
-                  <Button
-                    variant={sidebarEdit ? "primary" : "ghost"}
-                    onClick={() => setSidebarEdit((v) => !v)}
-                    title="Drag and drop to reorder"
-                  >
-                    {sidebarEdit ? "Done" : "Edit"}
-                  </Button>
-                </div>
-                {desktopItems.map(m => {
-                  const allowed = isTierAllowed(layout.userTier as Tier, m.tier);
-                  const active = layout.active === m.key;
-                  const idx = layout.desktopOrder.indexOf(m.key);
-                  return (
-                    <button
-                      key={m.key}
-                      className={["pn-navBtn", active ? "pn-navBtnActive" : ""].join(" ")}
-                      onClick={() => allowed && setActive(m.key)}
-                      disabled={!allowed}
-                      type="button"
-                      title={!allowed ? `Unlock in ${m.tier}` : m.subtitle}
-                      style={{ opacity: allowed ? 1 : .45, cursor: allowed ? "pointer" : "not-allowed" }}
-                      draggable={sidebarEdit}
-                      onDragStart={() => sidebarEdit && onDragStart(idx, m.key)}
-                      onDragOver={(e) => sidebarEdit && e.preventDefault()}
-                      onDrop={() => sidebarEdit && onDropSidebar(idx)}
-                    >
-                      <div className="pn-row">
-                        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                          <div className={dotClass(m.accent)} />
-                          <div style={{ fontSize: 18 }}>{m.icon}</div>
-                          <div>
-                            <div style={{ fontWeight: 900 }}>{m.title}</div>
-                            <div className="pn-small pn-muted">{m.subtitle}</div>
+              <div className="pn-row" style={{ marginBottom: 10 }}>
+                <div style={{ fontWeight: 900 }}>Sidebar</div>
+                <Button onClick={() => setCustomizeOpen(true)} variant="ghost" title="Customize sidebar (show/hide, reorder, pin)">
+                  Customize
+                </Button>
+              </div>
+
+              {effectiveNav.headers.map((h) => (
+                <div key={h.key} style={{ marginTop: 12 }}>
+                  <div className="pn-small pn-muted" style={{ fontWeight: 850, letterSpacing: 0.2 }}>
+                    {h.label}
+                  </div>
+                  <div className="pn-col" style={{ marginTop: 8 }}>
+                    {h.items.map((it) => {
+                      const allowedTier = isTierAllowed(layout.userTier as Tier, it.minTier || "Free");
+                      const allowedAdmin = !it.requiresAdmin || isAdmin;
+                      const allowed = allowedTier && allowedAdmin;
+                      const active = layout.active === it.path;
+                      const isPinned = (sidebarPrefs.pinnedItemIds || []).includes(it.id);
+                      const accent =
+                        it.header === "money" ? "amber"
+                          : it.header === "legal" ? "rose"
+                            : it.header === "admin" ? "purple"
+                              : it.header === "capture_docs" ? "blue"
+                                : "cyan";
+                      return (
+                        <button
+                          key={it.id}
+                          className={["pn-navBtn", active ? "pn-navBtnActive" : ""].join(" ")}
+                          onClick={() => allowed && setActive(it.path)}
+                          disabled={!allowed}
+                          type="button"
+                          title={!allowed ? (it.minTier ? `Unlock in ${it.minTier}` : "Locked") : it.label}
+                          style={{ opacity: allowed ? 1 : .45, cursor: allowed ? "pointer" : "not-allowed" }}
+                        >
+                          <div className="pn-row">
+                            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                              <div className={dotClass(accent as any)} />
+                              <div style={{ fontSize: 18 }}>{it.icon || "•"}</div>
+                              <div style={{ fontWeight: 900 }}>{it.label}</div>
+                            </div>
+                            <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                              {isPinned && <span className="pn-badge">★</span>}
+                              {!allowed && it.minTier && <span className="pn-badge">🔒 {it.minTier}</span>}
+                            </div>
                           </div>
-                        </div>
-                        {sidebarEdit && <span className="pn-badge">drag</span>}
-                        {!allowed && <span className="pn-badge">🔒 {m.tier}</span>}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {!!addableItems.length && (
-              <div className="pn-card pn-p" style={{ marginTop: 14 }}>
-                <div className="pn-small pn-muted" style={{ marginBottom: 10 }}>
-                  More (optional)
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-                  {addableItems.map((m) => {
-                    const allowed = isTierAllowed(layout.userTier as Tier, m.tier);
-                    return (
-                      <button
-                        key={m.key}
-                        className="pn-btn"
-                        type="button"
-                        disabled={!allowed}
-                        title={!allowed ? `Unlock in ${m.tier}` : `Add ${m.title} to sidebar`}
-                        onClick={() => allowed && addSidebarHeader(m.key)}
-                        style={{ opacity: allowed ? 1 : .45 }}
-                      >
-                        + {m.title}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            <div className="pn-card pn-p" style={{ marginTop: 14 }}>
-              <div className="pn-small pn-muted">Drag/drop reorder is in Admin. All saved locally for this prototype.</div>
+              ))}
             </div>
           </div>
 
@@ -529,24 +464,36 @@ export function AppShell() {
         </div>
       </div>
 
+      <SidebarCustomizeModal
+        open={customizeOpen}
+        onClose={() => setCustomizeOpen(false)}
+        view={view}
+        defaults={navDefaults}
+        prefs={sidebarPrefs}
+        setPrefs={setSidebarPrefs}
+        isAdmin={isAdmin}
+      />
+
       {/* Mobile bottom nav */}
       <div className="pn-mobileNav pn-card">
         <div className="pn-mobileGrid">
-          {mobileItems.slice(0, 5).map(m => {
-            const allowed = isTierAllowed(layout.userTier as Tier, m.tier);
-            const active = layout.active === m.key;
+          {flatNavItems.filter((it) => it.header !== "admin").slice(0, 5).map((it) => {
+            const allowedTier = isTierAllowed(layout.userTier as Tier, it.minTier || "Free");
+            const allowedAdmin = !it.requiresAdmin || isAdmin;
+            const allowed = allowedTier && allowedAdmin;
+            const active = layout.active === it.path;
             return (
               <button
-                key={m.key}
+                key={it.id}
                 className={["pn-mobileTab", active ? "pn-mobileTabActive" : ""].join(" ")}
-                onClick={() => allowed && setActive(m.key)}
+                onClick={() => allowed && setActive(it.path)}
                 disabled={!allowed}
                 type="button"
-                title={!allowed ? `Unlock in ${m.tier}` : m.title}
+                title={!allowed ? (it.minTier ? `Unlock in ${it.minTier}` : "Locked") : it.label}
                 style={{ opacity: allowed ? 1 : .45, cursor: allowed ? "pointer" : "not-allowed" }}
               >
-                <div style={{ fontSize: 18 }}>{m.icon}</div>
-                <div className="pn-small" style={{ marginTop: 4, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{m.title}</div>
+                <div style={{ fontSize: 18 }}>{it.icon || "•"}</div>
+                <div className="pn-small" style={{ marginTop: 4, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{it.label}</div>
               </button>
             );
           })}
