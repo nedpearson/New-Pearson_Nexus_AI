@@ -48,8 +48,11 @@ export function migrateLegacyLayoutToPrefs(layout: LayoutState, defaults: NavDef
 
   // Hide items that were previously disabled in Admin.
   const enabled = layout.enabled || {};
+  const CORE_ALWAYS_ON = new Set(["dashboard", "reports", "documents", "finances", "legal", "admin"]);
   for (const it of defaults.items) {
     const k = it.path;
+    // Guardrail: keep core tabs visible by default (especially Reports).
+    if (CORE_ALWAYS_ON.has(String(k))) continue;
     if (enabled[k] === false) next.hiddenItemIds.push(it.id);
   }
 

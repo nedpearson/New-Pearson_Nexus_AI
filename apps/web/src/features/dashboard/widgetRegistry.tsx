@@ -18,15 +18,39 @@ function isoFromTodayMinus(days: number) {
   return d.toISOString().slice(0, 10);
 }
 
+const _catCache = new WeakMap<object, { toKey: (v: string | undefined) => string }>();
+function catIndex(categories: AppData["categories"]) {
+  const key = categories as unknown as object;
+  const cached = _catCache.get(key);
+  if (cached) return cached;
+  const keyByNorm = new Map<string, string>();
+  for (const c of categories) {
+    const k = String(c.key || "");
+    const l = String(c.label || "");
+    if (k) keyByNorm.set(k.toLowerCase(), k);
+    if (l) keyByNorm.set(l.toLowerCase(), k);
+  }
+  const out = {
+    toKey: (v: string | undefined) => {
+      const s = String(v || "").trim();
+      if (!s) return "";
+      return keyByNorm.get(s.toLowerCase()) || s;
+    },
+  };
+  _catCache.set(key, out);
+  return out;
+}
+
 function sumExpensesInRange(data: AppData, rangeDays: number, categoryKeys: string[]) {
   const minIso = isoFromTodayMinus(rangeDays);
   let total = 0;
   let count = 0;
   const scoped = categoryKeys.length ? new Set(categoryKeys) : null;
+  const idx = catIndex(data.categories);
   for (const e of data.expenses) {
     if (!e?.date) continue;
     if (e.date < minIso) continue;
-    if (scoped && !scoped.has(String(e.category || ""))) continue;
+    if (scoped && !scoped.has(idx.toKey(String(e.category || "")))) continue;
     total += Number(e.amount || 0);
     count += 1;
   }
@@ -38,10 +62,11 @@ function sumIncomeInRange(data: AppData, rangeDays: number, categoryKeys: string
   let total = 0;
   let count = 0;
   const scoped = categoryKeys.length ? new Set(categoryKeys) : null;
+  const idx = catIndex(data.categories);
   for (const i of (data.income || [])) {
     if (!i?.date) continue;
     if (i.date < minIso) continue;
-    if (scoped && !scoped.has(String(i.category || ""))) continue;
+    if (scoped && !scoped.has(idx.toKey(String(i.category || "")))) continue;
     total += Number(i.amount || 0);
     count += 1;
   }

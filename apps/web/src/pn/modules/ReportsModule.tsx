@@ -123,24 +123,54 @@ export function ReportsModule(props: { data: AppData; view?: "personal" | "busin
     try { localStorage.setItem(presetsKey(view), JSON.stringify(next)); } catch { /* ignore */ }
   }
 
+  const categoryIndex = useMemo(() => {
+    const keyByNorm = new Map<string, string>();
+    const labelByKey = new Map<string, string>();
+    for (const c of props.data.categories) {
+      const k = String(c.key || "");
+      const l = String(c.label || "");
+      if (k) keyByNorm.set(k.toLowerCase(), k);
+      if (l) keyByNorm.set(l.toLowerCase(), k);
+      if (k) labelByKey.set(k, l || k);
+    }
+    const toKey = (v: string | undefined) => {
+      const s = String(v || "").trim();
+      if (!s) return "";
+      return keyByNorm.get(s.toLowerCase()) || s;
+    };
+    const toLabel = (v: string | undefined) => {
+      const k = toKey(v);
+      return labelByKey.get(k) || String(v || k || "");
+    };
+    return { toKey, toLabel, labelByKey };
+  }, [props.data.categories]);
+
   const captureCategoryOptions = useMemo(() => {
-    const byKey = new Map(props.data.categories.map((c) => [c.key, c.label] as const));
-    return [{ key: "any", label: "Any category" }, ...props.data.categories.map((c) => ({ key: c.key, label: byKey.get(c.key) || c.label }))];
+    return [{ key: "any", label: "Any category" }, ...props.data.categories.map((c) => ({ key: c.key, label: c.label }))];
   }, [props.data.categories]);
 
   const expenseCategoryOptions = useMemo(() => {
-    const set = new Set<string>();
-    for (const e of props.data.expenses) set.add(e.category);
-    const list = Array.from(set).sort((a, b) => a.localeCompare(b));
-    return ["any", ...list];
-  }, [props.data.expenses]);
+    const fromData = new Set<string>();
+    for (const e of props.data.expenses) {
+      const k = categoryIndex.toKey(e.category);
+      if (k) fromData.add(k);
+    }
+    // Prefer configured categories, but include any unknown keys seen in data.
+    const known = props.data.categories.map((c) => c.key);
+    const extras = Array.from(fromData).filter((k) => !known.includes(k)).sort((a, b) => a.localeCompare(b));
+    return ["any", ...known, ...extras];
+  }, [props.data.expenses, props.data.categories, categoryIndex]);
 
   const incomeCategoryOptions = useMemo(() => {
-    const set = new Set<string>();
-    for (const i of (props.data.income || [])) set.add(i.category);
-    const list = Array.from(set).sort((a, b) => a.localeCompare(b));
-    return ["any", ...list];
-  }, [props.data.income]);
+    const fromData = new Set<string>();
+    for (const i of (props.data.income || [])) {
+      const k = categoryIndex.toKey(i.category);
+      if (k) fromData.add(k);
+    }
+    const known = props.data.categories.map((c) => c.key);
+    const extras = Array.from(fromData).filter((k) => !known.includes(k)).sort((a, b) => a.localeCompare(b));
+    return ["any", ...known, ...extras];
+  }, [props.data.income, props.data.categories, categoryIndex]);
 
   const filteredCaptures = useMemo(() => {
     return props.data.library.filter((i) => {
@@ -156,18 +186,18 @@ export function ReportsModule(props: { data: AppData; view?: "personal" | "busin
   const filteredExpenses = useMemo(() => {
     return props.data.expenses.filter((e) => {
       if (!inIsoRange(e.date, start || undefined, end || undefined)) return false;
-      if (expenseCategory !== "any" && e.category !== expenseCategory) return false;
+      if (expenseCategory !== "any" && categoryIndex.toKey(e.category) !== expenseCategory) return false;
       return true;
     });
-  }, [props.data.expenses, start, end, expenseCategory]);
+  }, [props.data.expenses, start, end, expenseCategory, categoryIndex]);
 
   const filteredIncome = useMemo(() => {
     return (props.data.income || []).filter((i) => {
       if (!inIsoRange(i.date, start || undefined, end || undefined)) return false;
-      if (incomeCategory !== "any" && i.category !== incomeCategory) return false;
+      if (incomeCategory !== "any" && categoryIndex.toKey(i.category) !== incomeCategory) return false;
       return true;
     });
-  }, [props.data.income, start, end, incomeCategory]);
+  }, [props.data.income, start, end, incomeCategory, categoryIndex]);
 
   const expenseTotal = useMemo(() => filteredExpenses.reduce((a, e) => a + e.amount, 0), [filteredExpenses]);
   const incomeTotal = useMemo(() => filteredIncome.reduce((a, i) => a + i.amount, 0), [filteredIncome]);
@@ -246,7 +276,7 @@ export function ReportsModule(props: { data: AppData; view?: "personal" | "busin
               <div className="pn-small pn-muted" style={{ minWidth: 64 }}>Expenses</div>
               <select className="pn-select" value={expenseCategory} onChange={(e)=>setExpenseCategory(e.target.value)} aria-label="Expense category" title="Expense category">
                 {expenseCategoryOptions.map((c) => (
-                  <option key={c} value={c}>{c === "any" ? "Any category" : c}</option>
+                  <option key={c} value={c}>{c === "any" ? "Any category" : (categoryIndex.toLabel(c) || c)}</option>
                 ))}
               </select>
             </div>
@@ -255,7 +285,7 @@ export function ReportsModule(props: { data: AppData; view?: "personal" | "busin
               <div className="pn-small pn-muted" style={{ minWidth: 64 }}>Income</div>
               <select className="pn-select" value={incomeCategory} onChange={(e)=>setIncomeCategory(e.target.value)} aria-label="Income category" title="Income category">
                 {incomeCategoryOptions.map((c) => (
-                  <option key={c} value={c}>{c === "any" ? "Any category" : c}</option>
+                  <option key={c} value={c}>{c === "any" ? "Any category" : (categoryIndex.toLabel(c) || c)}</option>
                 ))}
               </select>
             </div>
@@ -369,7 +399,7 @@ export function ReportsModule(props: { data: AppData; view?: "personal" | "busin
                         <div className="pn-row">
                           <div>
                             <div style={{ fontWeight: 900 }}>{i.source}</div>
-                            <div className="pn-small pn-muted">{i.date} • {i.category}</div>
+                            <div className="pn-small pn-muted">{i.date} • {categoryIndex.toLabel(i.category)}</div>
                           </div>
                           <div style={{ fontWeight: 900 }}>{money(i.amount)}</div>
                         </div>
@@ -392,7 +422,7 @@ export function ReportsModule(props: { data: AppData; view?: "personal" | "busin
                         <div className="pn-row">
                           <div>
                             <div style={{ fontWeight: 900 }}>{e.vendor}</div>
-                            <div className="pn-small pn-muted">{e.date} • {e.category}</div>
+                            <div className="pn-small pn-muted">{e.date} • {categoryIndex.toLabel(e.category)}</div>
                           </div>
                           <div style={{ fontWeight: 900 }}>{money(e.amount)}</div>
                         </div>
@@ -434,7 +464,7 @@ export function ReportsModule(props: { data: AppData; view?: "personal" | "busin
                           <div className="pn-row">
                             <div>
                               <div style={{ fontWeight: 900 }}>{e.vendor}</div>
-                              <div className="pn-small pn-muted">{e.date} • {e.category}</div>
+                              <div className="pn-small pn-muted">{e.date} • {categoryIndex.toLabel(e.category)}</div>
                             </div>
                             <div style={{ fontWeight: 900 }}>{money(e.amount)}</div>
                           </div>
@@ -469,8 +499,14 @@ export function ReportsModule(props: { data: AppData; view?: "personal" | "busin
                 cur.rows.push(row);
                 map.set(k, cur);
               };
-              for (const e of filteredExpenses) add(monthKey(e.date), e.category || "Uncategorized", e.amount, { type: "expense", ...e });
-              for (const i of filteredIncome) add(monthKey(i.date), i.category || "Uncategorized", i.amount, { type: "income", ...i });
+              for (const e of filteredExpenses) {
+                const cat = categoryIndex.toKey(e.category) || e.category || "Uncategorized";
+                add(monthKey(e.date), cat, e.amount, { type: "expense", ...e });
+              }
+              for (const i of filteredIncome) {
+                const cat = categoryIndex.toKey(i.category) || i.category || "Uncategorized";
+                add(monthKey(i.date), cat, i.amount, { type: "income", ...i });
+              }
               const rows = Array.from(map.values()).sort((a, b) => (a.month === b.month ? b.total - a.total : (a.month < b.month ? 1 : -1)));
               let lastMonth = "";
               return rows.map((r) => {
@@ -482,7 +518,7 @@ export function ReportsModule(props: { data: AppData; view?: "personal" | "busin
                     <button
                       className="pn-navBtn"
                       type="button"
-                      onClick={() => openDrill(`${r.month} • ${r.category}`, (
+                      onClick={() => openDrill(`${r.month} • ${categoryIndex.toLabel(r.category)}`, (
                         <div className="pn-list">
                           {r.rows.map((x) => (
                             <div key={x.id} className="pn-item" style={{ background:"rgba(0,0,0,.12)" }}>
@@ -501,7 +537,7 @@ export function ReportsModule(props: { data: AppData; view?: "personal" | "busin
                     >
                       <div className="pn-row">
                         <div>
-                          <div style={{ fontWeight: 900 }}>{r.category}</div>
+                          <div style={{ fontWeight: 900 }}>{categoryIndex.toLabel(r.category)}</div>
                           <div className="pn-small pn-muted">{r.rows.length} rows</div>
                         </div>
                         <div style={{ fontWeight: 900 }}>{money(r.total)}</div>
@@ -544,12 +580,12 @@ export function ReportsModule(props: { data: AppData; view?: "personal" | "busin
                 }
                 if (ledgerTypes.includes("expenses")) {
                   for (const e of filteredExpenses) {
-                    rows.push({ id: e.id, date: e.date, label: e.vendor, type: "expense", amount: e.amount, meta: e.category });
+                    rows.push({ id: e.id, date: e.date, label: e.vendor, type: "expense", amount: e.amount, meta: categoryIndex.toLabel(e.category) });
                   }
                 }
                 if (ledgerTypes.includes("income")) {
                   for (const i of filteredIncome) {
-                    rows.push({ id: i.id, date: i.date, label: i.source, type: "income", amount: i.amount, meta: i.category });
+                    rows.push({ id: i.id, date: i.date, label: i.source, type: "income", amount: i.amount, meta: categoryIndex.toLabel(i.category) });
                   }
                 }
                 rows.sort((a, b) => (a.date === b.date ? a.id.localeCompare(b.id) : (a.date < b.date ? 1 : -1)));
@@ -602,7 +638,7 @@ export function ReportsModule(props: { data: AppData; view?: "personal" | "busin
                     <div className="pn-row">
                       <div>
                         <div style={{ fontWeight: 900 }}>{e.vendor}</div>
-                        <div className="pn-small pn-muted">{e.date} • {e.category}</div>
+                        <div className="pn-small pn-muted">{e.date} • {categoryIndex.toLabel(e.category)}</div>
                       </div>
                       <div style={{ fontWeight: 900 }}>{money(e.amount)}</div>
                     </div>
