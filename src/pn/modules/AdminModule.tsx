@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { AppData, Category } from "../data/model";
 import { Button, Card, Pill } from "../components/kit";
 import { saveData, saveLayout } from "../utils/store";
@@ -27,6 +27,15 @@ export function AdminModule(props: {
 
   function setTier(t: "Free"|"Plus"|"Pro") {
     const next = { ...props.layout, userTier: t };
+    props.setLayout(next);
+    saveLayout(next, props.scope || "personal");
+  }
+
+  function toggleModule(key: any, nextValue: boolean) {
+    const next = {
+      ...props.layout,
+      enabled: { ...(props.layout.enabled || {}), [key]: nextValue },
+    };
     props.setLayout(next);
     saveLayout(next, props.scope || "personal");
   }
@@ -79,6 +88,36 @@ export function AdminModule(props: {
           <Button onClick={() => setTier("Free")}>Set Tier: Free</Button>
           <Button onClick={() => setTier("Plus")}>Set Tier: Plus</Button>
           <Button onClick={() => setTier("Pro")} variant="primary">Set Tier: Pro</Button>
+        </div>
+      </Card>
+
+      <Card
+        title="Visible tabs"
+        subtitle="Keep the app simple. Turn on extra tabs only when you need them."
+      >
+        <div className="pn-list">
+          {(props.modules || MODULES).map((m) => {
+            const alwaysOn = m.key === "dashboard" || m.key === "admin";
+            const checked = alwaysOn ? true : (props.layout.enabled?.[m.key] !== false);
+            return (
+              <label key={m.key} className="pn-item" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                <div>
+                  <div style={{ fontWeight: 900 }}>{m.icon} {m.title}</div>
+                  <div className="pn-small pn-muted">{m.subtitle}</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  disabled={alwaysOn}
+                  onChange={(e) => toggleModule(m.key, e.target.checked)}
+                  style={{ width: 18, height: 18 }}
+                />
+              </label>
+            );
+          })}
+        </div>
+        <div className="pn-small pn-muted" style={{ marginTop: 10 }}>
+          Tip: Mobile shows only the first 5 enabled tabs (you can reorder them below).
         </div>
       </Card>
 
@@ -139,8 +178,20 @@ export function AdminModule(props: {
           {props.data.categories.map(c => (
             <div key={c.key} className="pn-item">
               <div className="pn-layout" style={{ gridTemplateColumns: "1fr 180px 220px", alignItems:"center" }}>
-                <input className="pn-input" value={c.label} onChange={(e)=>updateCategory(c.key, { label: e.target.value })} />
-                <select className="pn-select" value={c.color} onChange={(e)=>updateCategory(c.key, { color: e.target.value as any })}>
+                <input
+                  className="pn-input"
+                  value={c.label}
+                  onChange={(e)=>updateCategory(c.key, { label: e.target.value })}
+                  aria-label={`Category label for ${c.key}`}
+                  title="Category label"
+                />
+                <select
+                  className="pn-select"
+                  value={c.color}
+                  onChange={(e)=>updateCategory(c.key, { color: e.target.value as any })}
+                  aria-label={`Category color for ${c.key}`}
+                  title="Category color"
+                >
                   <option value="cyan">cyan</option>
                   <option value="blue">blue</option>
                   <option value="purple">purple</option>

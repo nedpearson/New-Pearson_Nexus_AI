@@ -42,11 +42,46 @@ export function AppShell() {
   const defaultDesktopOrder = mode === "business" ? BUSINESS_DEFAULT_DESKTOP_ORDER : DEFAULT_DESKTOP_ORDER;
   const defaultMobileOrder = mode === "business" ? BUSINESS_DEFAULT_MOBILE_ORDER : DEFAULT_MOBILE_ORDER;
 
+  // Keep defaults minimal; Admin can enable additional tabs.
+  const defaultEnabled = useMemo((): Partial<Record<ModuleKey, boolean>> => {
+    if (mode === "business") {
+      return {
+        dashboard: true,
+        clients: true,
+        documents: true,
+        // hidden by default (enable in Admin)
+        invoices: false,
+        projects: false,
+        reports: false,
+        guides: false,
+        finances: false,
+        legal: false,
+        admin: true,
+      };
+    }
+    // personal
+    return {
+      dashboard: true,
+      documents: true,
+      // hidden by default (enable in Admin)
+      finances: false,
+      legal: false,
+      admin: true,
+      // business-only keys default off
+      clients: false,
+      invoices: false,
+      projects: false,
+      reports: false,
+      guides: false,
+    };
+  }, [mode]);
+
   const fallbackLayout: LayoutState = {
     active: "dashboard",
     desktopOrder: defaultDesktopOrder,
     mobileOrder: defaultMobileOrder,
     userTier: "Pro",
+    enabled: defaultEnabled,
   };
 
   const [layout, setLayout] = useState<LayoutState>(() => fallbackLayout);
@@ -141,12 +176,30 @@ export function AppShell() {
   }
 
   const byKey = useMemo(() => new Map(activeModules.map(m => [m.key, m])), [activeModules]);
-  const desktopItems = layout.desktopOrder.map((k) => byKey.get(k)).filter(Boolean) as ModuleItem[];
-  const mobileItems = layout.mobileOrder.map((k) => byKey.get(k)).filter(Boolean) as ModuleItem[];
+  const enabled = layout.enabled || defaultEnabled;
+  const isEnabled = (k: ModuleKey) => enabled[k] !== false; // default true unless explicitly false
+
+  const desktopItems = layout.desktopOrder
+    .filter((k) => isEnabled(k))
+    .map((k) => byKey.get(k))
+    .filter(Boolean) as ModuleItem[];
+
+  const mobileItems = layout.mobileOrder
+    .filter((k) => isEnabled(k))
+    .map((k) => byKey.get(k))
+    .filter(Boolean) as ModuleItem[];
 
   function setActive(k: ModuleKey) {
     setLayout(prev => ({ ...prev, active: k }));
   }
+
+  // If the currently-active tab is disabled, bounce to dashboard.
+  useEffect(() => {
+    if (!isEnabled(layout.active)) {
+      setLayout((prev) => ({ ...prev, active: "dashboard" }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, layout.active, JSON.stringify(enabled)]);
 
   function quickCapture() {
     setActive("documents");

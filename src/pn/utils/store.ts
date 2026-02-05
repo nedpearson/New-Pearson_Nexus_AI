@@ -13,6 +13,11 @@ export type LayoutState = {
   desktopOrder: ModuleKey[];
   mobileOrder: ModuleKey[];
   userTier: Tier;
+  /**
+   * Feature visibility switches (Admin-controlled).
+   * If a key is missing, fall back to the default for the current mode.
+   */
+  enabled: Partial<Record<ModuleKey, boolean>>;
 };
 
 export function loadData(fallback: AppData, scope = "personal"): AppData {
@@ -38,7 +43,12 @@ export function loadLayout(fallback: LayoutState, scope = "personal"): LayoutSta
     const raw = localStorage.getItem(layoutKey(scope));
     if (!raw) return fallback;
     const parsed = JSON.parse(raw) as LayoutState;
-    return { ...fallback, ...parsed };
+    return {
+      ...fallback,
+      ...parsed,
+      // Deep-merge enabled flags so new defaults don't get wiped by old saves.
+      enabled: { ...(fallback.enabled || {}), ...((parsed as any).enabled || {}) },
+    };
   } catch {
     return fallback;
   }
