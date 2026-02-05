@@ -26,6 +26,16 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
   const [pendingBlob, setPendingBlob] = useState<Blob|undefined>(undefined);
   const [pendingDataUrl, setPendingDataUrl] = useState<string|undefined>(undefined);
 
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [uploadDone, setUploadDone] = useState(false);
+  const [uploadTotal, setUploadTotal] = useState(0);
+  const [uploadIdx, setUploadIdx] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState<string>("");
+  const [uploadErrors, setUploadErrors] = useState<string[]>([]);
+
   const streamRef = useRef<MediaStream|null>(null);
   const recRef = useRef<MediaRecorder|null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
@@ -48,7 +58,6 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
   useEffect(() => {
     if (categoryTouched) return;
     if (!category || category === "inbox") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (topSuggestion) setCategory(topSuggestion);
     }
   }, [topSuggestion, categoryTouched, category]);
@@ -105,6 +114,98 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
     }
     setPreviewUrl(undefined);
     stop(true);
+  }
+
+  function inferKindFromMime(m: string | undefined) {
+    const x = String(m || "").toLowerCase();
+    if (x.startsWith("image/")) return "photo" as const;
+    if (x.startsWith("video/")) return "video" as const;
+    if (x.startsWith("audio/")) return "voice" as const;
+    return "note" as const;
+  }
+
+  function baseTitleFromFile(f: File) {
+    const rel = (f as unknown as { webkitRelativePath?: string }).webkitRelativePath;
+    const name = rel && rel.includes("/") ? rel : f.name;
+    const last = name.split("/").pop() || name;
+    return last.replace(/\.[a-z0-9]{1,8}$/i, "") || "Upload";
+  }
+
+  function readAsDataUrl(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("Failed to read file"));
+      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function ingestMany(files: File[]) {
+    stop(true);
+    setRecState("idle");
+    setUploadOpen(true);
+    setUploadBusy(true);
+    setUploadDone(false);
+    setUploadErrors([]);
+    setUploadTotal(files.length);
+    setUploadIdx(0);
+    setUploadStatus("Starting…");
+
+    const maxBytes = 2_000_000; // ~2MB
+    const nextItems: AppData["library"] = [];
+    let nextLearning = props.data.learning;
+
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      setUploadIdx(i + 1);
+      setUploadStatus(`Uploading ${i + 1}/${files.length}: ${f.name}`);
+      try {
+        const id = rid("lib");
+        const m = f.type || "application/octet-stream";
+        const k = inferKindFromMime(m);
+        let persistedUrl: string | undefined;
+
+        if (f.size > maxBytes) {
+          await putBlob(id, f);
+          persistedUrl = `idb:${id}`;
+        } else {
+          const url = await readAsDataUrl(f);
+          persistedUrl = url || undefined;
+        }
+
+        const t = baseTitleFromFile(f);
+        const s = suggestCategories(t, text || undefined, k, props.data.categories, nextLearning);
+
+        nextItems.push({
+          id,
+          createdAt: Date.now(),
+          kind: k,
+          title: t,
+          text: text.trim() || undefined,
+          fileName: f.name,
+          mediaUrl: persistedUrl,
+          mime: m,
+          suggested: s,
+          approvedCategory: category || undefined,
+        });
+
+        if (category) nextLearning = learnCorrection(nextLearning, t, text || undefined, category);
+      } catch (e) {
+        setUploadErrors((prev) => [...prev, `${f.name}: ${e instanceof Error ? e.message : String(e)}`]);
+      }
+    }
+
+    if (nextItems.length) {
+      props.setData({
+        ...props.data,
+        library: [...nextItems.reverse(), ...props.data.library],
+        learning: nextLearning,
+      });
+    }
+
+    setUploadBusy(false);
+    setUploadDone(true);
+    setUploadStatus(uploadErrors.length ? "Done (with warnings)" : "Done");
   }
 
   async function save(approvedCategory?: string) {
@@ -206,6 +307,30 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
     reader.readAsDataURL(file);
   }
 
+  async function onPickFiles(fileList: FileList | null) {
+    const files = fileList ? Array.from(fileList) : [];
+    if (!files.length) return;
+    // If user picked a folder or multiple files, ingest directly into the library with progress.
+    if (files.length > 1) {
+      await ingestMany(files);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (folderInputRef.current) folderInputRef.current.value = "";
+      return;
+    }
+    await onPickFile(files[0]);
+  }
+
+  useEffect(() => {
+    // Enable folder selection (Chrome/Edge) on the dedicated folder input.
+    try {
+      if (!folderInputRef.current) return;
+      folderInputRef.current.setAttribute("webkitdirectory", "");
+      folderInputRef.current.setAttribute("directory", "");
+    } catch {
+      // ignore
+    }
+  }, []);
+
   return (
     <Card
       title="Quick Capture"
@@ -228,16 +353,32 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
         <div className="pn-item" style={{ marginTop: 10 }}>
           <div className="pn-h2">Upload a file</div>
           <div className="pn-small pn-muted" style={{ marginTop: 6 }}>
-            Choose a document/photo and assign a category. (Prototype: stored locally.)
+            Choose a file or a folder. Folder uploads will ingest all files into your Library. (Prototype: stored locally.)
           </div>
           <div style={{ marginTop: 10, display:"flex", gap:10, flexWrap:"wrap", alignItems:"center" }}>
             <input
+              ref={(r) => { fileInputRef.current = r; }}
               type="file"
-              onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
+              multiple
+              onChange={(e) => { void onPickFiles(e.target.files); }}
               aria-label="Upload file"
             />
+            <Button
+              onClick={() => folderInputRef.current?.click()}
+              title="Upload a folder (Chrome/Edge)"
+            >
+              Upload folder
+            </Button>
             {fileName && <Pill>{fileName}</Pill>}
           </div>
+
+          <input
+            ref={(r) => { folderInputRef.current = r; }}
+            type="file"
+            style={{ display: "none" }}
+            onChange={(e) => { void onPickFiles(e.target.files); }}
+            aria-label="Upload folder"
+          />
 
           {previewUrl && (mime || "").startsWith("image/") && (
             <div style={{ marginTop: 10 }}>
@@ -333,6 +474,67 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
           <Button onClick={reset}>Reset</Button>
         </div>
       </div>
+
+      {uploadOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            background: "rgba(0,0,0,.55)",
+            display: "grid",
+            placeItems: "center",
+            padding: 14,
+          }}
+          onClick={() => { if (!uploadBusy) setUploadOpen(false); }}
+        >
+          <div className="pn-card pn-p" style={{ maxWidth: 720, width: "100%" }} onClick={(e) => e.stopPropagation()}>
+            <div className="pn-row" style={{ marginBottom: 10 }}>
+              <div>
+                <div style={{ fontWeight: 900, fontSize: 16 }}>Uploading…</div>
+                <div className="pn-small pn-muted">{uploadStatus}</div>
+              </div>
+              <Button
+                variant="primary"
+                disabled={!uploadDone}
+                onClick={() => setUploadOpen(false)}
+                title={uploadDone ? "Close" : "Please wait"}
+              >
+                Done
+              </Button>
+            </div>
+
+            <div style={{ height: 10, borderRadius: 999, background: "rgba(255,255,255,.10)", overflow: "hidden" }}>
+              <div
+                style={{
+                  height: "100%",
+                  width: `${uploadTotal ? Math.round((uploadIdx / uploadTotal) * 100) : 0}%`,
+                  background: "linear-gradient(90deg, rgba(34,211,238,.55), rgba(168,85,247,.55))",
+                }}
+              />
+            </div>
+            <div className="pn-small pn-muted" style={{ marginTop: 8 }}>
+              {uploadTotal ? `${uploadIdx}/${uploadTotal}` : "0/0"}
+              {uploadBusy ? " • working…" : uploadDone ? " • complete" : ""}
+            </div>
+
+            {!!uploadErrors.length && (
+              <div className="pn-item" style={{ marginTop: 12, background: "rgba(0,0,0,.18)" }}>
+                <div style={{ fontWeight: 900 }}>Warnings</div>
+                <div className="pn-small pn-muted">Some files could not be ingested.</div>
+                <div className="pn-list" style={{ marginTop: 10 }}>
+                  {uploadErrors.slice(0, 12).map((x, idx) => (
+                    <div key={idx} className="pn-small pn-muted">{x}</div>
+                  ))}
+                  {uploadErrors.length > 12 && <div className="pn-small pn-muted">…and {uploadErrors.length - 12} more</div>}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </Card>
   );
 }
