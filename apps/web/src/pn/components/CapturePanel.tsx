@@ -281,10 +281,49 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
     setNewCategoryLabel("");
   }
 
+  async function onPickFile(file: File | null) {
+    if (!file) return;
+    stop(true);
+    setRecState("idle");
+    setFileName(file.name);
+    setMime(file.type || "application/octet-stream");
+
+    // Read as data URL for persistence in localStorage (simple prototype).
+    // Guardrail: if file is huge, store the Blob in IndexedDB (persisted).
+    const maxBytes = 2_000_000; // ~2MB
+    if (file.size > maxBytes) {
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+      setPendingBlob(file);
+      setPendingDataUrl(undefined);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const url = typeof reader.result === "string" ? reader.result : "";
+      if (url) {
+        setPreviewUrl(url);
+        setPendingDataUrl(url);
+        setPendingBlob(undefined);
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
   async function onPickFiles(fileList: FileList | null) {
     const files = fileList ? Array.from(fileList) : [];
     if (!files.length) return;
-    // Ingest selections directly into the library with progress.
+    const first = files[0] as unknown as { webkitRelativePath?: string };
+    const isFolderPick = Boolean(first?.webkitRelativePath && String(first.webkitRelativePath).includes("/"));
+
+    // Single file selection: show preview + use Save button to ingest (expected UX).
+    if (files.length === 1 && !isFolderPick) {
+      await onPickFile(files[0]);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    // Folder or multi-file selection: ingest directly with progress.
     await ingestMany(files);
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (folderInputRef.current) folderInputRef.current.value = "";
@@ -323,7 +362,7 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
         <div className="pn-item" style={{ marginTop: 10 }}>
           <div className="pn-h2">Upload a file</div>
           <div className="pn-small pn-muted" style={{ marginTop: 6 }}>
-            Choose a file or a folder. Folder uploads will ingest all files into your Library. (Prototype: stored locally.)
+            Choose one file to preview, then click Save. Or upload a folder / multiple files to ingest automatically with progress. (Prototype: stored locally.)
           </div>
           <div style={{ marginTop: 10, display:"flex", gap:10, flexWrap:"wrap", alignItems:"center" }}>
             <input
@@ -409,8 +448,8 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
           <Button
             variant="primary"
             onClick={() => { void save(category); }}
-            disabled={mode === "file"}
-            title={mode === "file" ? "Files upload immediately; no Save needed" : "Save with selected category"}
+            disabled={mode === "file" && !previewUrl}
+            title={mode === "file" && !previewUrl ? "Choose a file first" : "Save with selected category"}
           >
             Save
           </Button>
