@@ -4,6 +4,12 @@ import { fileURLToPath } from "url";
 import Busboy from "busboy";
 import crypto from "crypto";
 import { ingestAudioBytes, ingestDocumentBytes, ingestTextOnly } from "../server/ingestion/ingest.mjs";
+import {
+  ingestDocumentViaSuperagent,
+  ingestVoiceViaSuperagent,
+  superagentDocsEnabled,
+  superagentVoiceEnabled
+} from "../server/superagentRuntime.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -95,8 +101,28 @@ app.post("/upload/mobile", async (req, res) => {
     const mimeType = fileInfo?.mimeType || "application/octet-stream";
     const filename = fileInfo?.filename || "mobile_upload";
     const captureType = fields.captureType || "document";
+    if (superagentDocsEnabled()) {
+      const ctx = {
+        userId: String(fields.userId || "anon"),
+        orgId: fields.orgId ? String(fields.orgId) : undefined,
+        source: "mobile",
+        filename,
+        mimeType,
+        capturedAt: fields.capturedAt ? String(fields.capturedAt) : new Date().toISOString(),
+        device: { platform: fields.platform ? String(fields.platform) : undefined, model: fields.model ? String(fields.model) : undefined },
+        capture: { isScan: fields.isScan === "true", hasAutoCrop: fields.hasAutoCrop === "true", rotationApplied: fields.rotationApplied === "true" },
+      };
+      const out = await ingestDocumentViaSuperagent({
+        correlationId: cid,
+        ctx,
+        buffer: Buffer.from(bytes),
+        mimeType,
+      });
+      return res.json({ ok: true, correlationId: cid, sha256: out.sha256, routing: out.routing, stored: out.stored });
+    }
+
     const r = await ingestDocumentBytes({ id: fields.id, correlationId: cid, source: "mobile", captureType, filename, mimeType, bytes });
-    return res.json({ ok: true, correlationId: cid, hash: r.hash, routing: r.route, recordId: r.recordId });
+    return res.json({ ok: true, correlationId: cid, hash: r.hash, routing: r.route, recordId: r.recordId, superagent: false });
   } catch (e) {
     return res.status(400).json({ ok: false, correlationId: cid, error: e instanceof Error ? e.message : String(e) });
   }
@@ -108,8 +134,26 @@ app.post("/upload/voice", async (req, res) => {
     const { bytes, fileInfo, fields } = await parseSingleFile(req);
     const mimeType = fileInfo?.mimeType || "application/octet-stream";
     const filename = fileInfo?.filename || "voice_upload";
+    if (superagentVoiceEnabled()) {
+      const ctx = {
+        userId: String(fields.userId || "anon"),
+        orgId: fields.orgId ? String(fields.orgId) : undefined,
+        source: "voice",
+        filename,
+        mimeType,
+        capturedAt: fields.capturedAt ? String(fields.capturedAt) : new Date().toISOString(),
+      };
+      const out = await ingestVoiceViaSuperagent({
+        correlationId: cid,
+        ctx,
+        buffer: Buffer.from(bytes),
+        mimeType,
+      });
+      return res.json({ ok: true, correlationId: cid, sha256: out.sha256, routing: out.routing, stored: out.stored });
+    }
+
     const r = await ingestAudioBytes({ id: fields.id, correlationId: cid, source: "voice", filename, mimeType, bytes });
-    return res.json({ ok: true, correlationId: cid, hash: r.hash, routing: r.route, recordId: r.recordId });
+    return res.json({ ok: true, correlationId: cid, hash: r.hash, routing: r.route, recordId: r.recordId, superagent: false });
   } catch (e) {
     return res.status(400).json({ ok: false, correlationId: cid, error: e instanceof Error ? e.message : String(e) });
   }

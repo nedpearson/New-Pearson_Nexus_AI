@@ -22,7 +22,7 @@ export function routeVoiceTranscript(
   let sensitivity: Sensitivity = "internal";
 
   // Expense-like voice note
-  const moneyLike = /\\$?\\b\\d{1,6}(\\.\\d{2})?\\b/.test(t);
+  const moneyLike = /\$?\b\d{1,6}(\.\d{2})?\b/.test(t);
   const hasPay = t.includes("paid") || t.includes("payment") || t.includes("pay ");
   const hasBill = t.includes("bill") || t.includes("invoice") || t.includes("receipt");
 

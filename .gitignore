@@ -27,3 +27,7 @@ dist-ssr
 # Keep generic SW files ignored, but allow our explicit public kill-switch SW.
 sw.js
 !apps/**/public/sw.js
+
+# Server build output + dev artifacts
+apps/web/server/superagent-dist/
+data/
