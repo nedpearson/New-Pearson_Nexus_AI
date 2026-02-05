@@ -10,6 +10,7 @@ import { BusinessDashboardModule } from "../biz/modules/BusinessDashboardModule"
 import { GuidesModule } from "../biz/modules/GuidesModule";
 import { PlaceholderModule } from "../biz/modules/PlaceholderModule";
 import { SidebarCustomizeModal } from "./components/SidebarCustomizeModal";
+import { MobileAppQRCode } from "../components/MobileAppQRCode";
 import { getDefaults } from "./nav/nav.defaults";
 import { getEffectiveNav, validateDefaults } from "./nav/getEffectiveNav";
 import type { SidebarPreferencesV1, ViewKey } from "./nav/nav.types";
@@ -85,7 +86,6 @@ export function AppShell() {
   const [isInstalled, setIsInstalled] = useState(false);
   const [mobileModalOpen, setMobileModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [sidebarPrefs, setSidebarPrefs] = useState<SidebarPreferencesV1>(() => defaultPrefsForDefaults(navDefaults));
   const [viewMode, setViewMode] = useState<"mobile" | "desktop">(() => {
@@ -144,29 +144,6 @@ export function AppShell() {
     };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        if (typeof window === "undefined") return;
-        const url = window.location.origin;
-        // Lazy-load QR lib so we don't bloat initial boot.
-        const QRCode = (await import("qrcode")).default;
-        const dataUrl = await QRCode.toDataURL(url, {
-          margin: 1,
-          width: 92,
-          color: { dark: "#0b1020", light: "#ffffff" },
-        });
-        if (!cancelled) setQrDataUrl(dataUrl);
-      } catch {
-        // ignore
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   async function doInstall() {
     if (!installPrompt) return;
     try {
@@ -179,7 +156,7 @@ export function AppShell() {
 
   async function copyLink() {
     try {
-      const url = window.location.origin;
+      const url = window.location.origin + "/m";
       await navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
@@ -433,31 +410,6 @@ export function AppShell() {
                   <Button variant="primary" onClick={() => setMobileModalOpen(true)} title="Open on your phone and install to Home Screen">
                     Install on Phone
                   </Button>
-                  <button
-                    type="button"
-                    onClick={() => setMobileModalOpen(true)}
-                    title="Scan to open on your phone"
-                    style={{
-                      display: "grid",
-                      gap: 6,
-                      alignItems: "center",
-                      justifyItems: "center",
-                      padding: 8,
-                      borderRadius: 16,
-                      border: "1px solid rgba(255,255,255,.18)",
-                      background: "rgba(255,255,255,.07)",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <div style={{ width: 46, height: 46, borderRadius: 10, overflow: "hidden", background: "#fff", display: "grid", placeItems: "center" }}>
-                      {qrDataUrl ? (
-                        <img src={qrDataUrl} alt="QR code for phone install" width={46} height={46} style={{ display: "block" }} />
-                      ) : (
-                        <div style={{ width: 46, height: 46, display: "grid", placeItems: "center", color: "#0b1020", fontWeight: 900 }}>QR</div>
-                      )}
-                    </div>
-                    <div className="pn-small pn-muted" style={{ lineHeight: 1, whiteSpace: "nowrap" }}>Phone</div>
-                  </button>
                   <Button variant="primary" onClick={quickCapture}>Quick Capture</Button>
                 </div>
               </div>
@@ -482,17 +434,25 @@ export function AppShell() {
                   <div className="pn-row" style={{ marginBottom: 8 }}>
                     <div>
                       <div style={{ fontWeight: 900, fontSize: 16 }}>Install on Phone</div>
-                      <div className="pn-small pn-muted">Open this link on your phone, then “Add to Home Screen”.</div>
+                      <div className="pn-small pn-muted">Scan the QR or open the link on your phone, then “Add to Home Screen”.</div>
                     </div>
                     <Button onClick={() => setMobileModalOpen(false)} title="Close">Close</Button>
                   </div>
 
+                  <div className="pn-card pn-p" style={{ background: "rgba(0,0,0,.18)", display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+                    <MobileAppQRCode path="/m" size={140} />
+                    <div className="pn-small pn-muted" style={{ minWidth: 240 }}>
+                      <div style={{ fontWeight: 900, color: "rgba(238,242,255,.92)" }}>Mobile capture</div>
+                      <div>Scan to open <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" }}>/m</span> on your phone.</div>
+                    </div>
+                  </div>
+
                   <div className="pn-card pn-p" style={{ background: "rgba(0,0,0,.18)" }}>
                     <div className="pn-small pn-muted">Link</div>
-                    <div style={{ fontWeight: 800, wordBreak: "break-all", marginTop: 6 }}>{typeof window !== "undefined" ? window.location.origin : ""}</div>
+                    <div style={{ fontWeight: 800, wordBreak: "break-all", marginTop: 6 }}>{typeof window !== "undefined" ? (window.location.origin + "/m") : ""}</div>
                     <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
                       <Button onClick={copyLink} variant="primary">{copied ? "Copied!" : "Copy Link"}</Button>
-                      <Button onClick={() => window.open(window.location.origin, "_blank")}>Open Link</Button>
+                      <Button onClick={() => window.open(window.location.origin + "/m", "_blank")}>Open Link</Button>
                     </div>
                   </div>
 
