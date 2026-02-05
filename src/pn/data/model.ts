@@ -6,6 +6,7 @@ export type LibraryItem = {
   kind: CaptureKind;
   title: string;
   text?: string;
+  fileName?: string;
   mediaUrl?: string;
   mime?: string;
   suggested: { category: string; score: number }[];

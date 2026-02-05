@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { AppData } from "../data/model";
 import { learnCorrection, suggestCategories } from "../utils/store";
+import { putBlob } from "../utils/blobStore";
 import { Button, Card, Pill } from "./kit";
 
 type Mode = "note" | "voice" | "video";
@@ -15,12 +16,15 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
   const [category, setCategory] = useState<string>("inbox");
+  const [categoryTouched, setCategoryTouched] = useState(false);
   const [newCategoryLabel, setNewCategoryLabel] = useState("");
   const [fileName, setFileName] = useState<string>("");
 
   const [recState, setRecState] = useState<RecState>("idle");
-  const [mediaUrl, setMediaUrl] = useState<string|undefined>(undefined);
+  const [previewUrl, setPreviewUrl] = useState<string|undefined>(undefined);
   const [mime, setMime] = useState<string|undefined>(undefined);
+  const [pendingBlob, setPendingBlob] = useState<Blob|undefined>(undefined);
+  const [pendingDataUrl, setPendingDataUrl] = useState<string|undefined>(undefined);
 
   const streamRef = useRef<MediaStream|null>(null);
   const recRef = useRef<MediaRecorder|null>(null);
@@ -38,14 +42,15 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
     return suggestCategories(title || "Untitled", text || undefined, kind, props.data.categories, props.data.learning);
   }, [title, text, kind, props.data.categories, props.data.learning]);
 
+  const topSuggestion = suggestions?.[0]?.category;
+
   // Initialize the category when suggestions update (but don't clobber user choice).
   useEffect(() => {
+    if (categoryTouched) return;
     if (!category || category === "inbox") {
-      const top = suggestions?.[0]?.category;
-      if (top) setCategory(top);
+      if (topSuggestion) setCategory(topSuggestion);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [suggestions.map(s => s.category).join("|")]);
+  }, [topSuggestion, categoryTouched, category]);
 
   async function start(kind: "voice"|"video") {
     stop(true);
@@ -64,8 +69,10 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
     rec.onstop = () => {
       const blob = new Blob(chunksRef.current, { type: rec.mimeType || (kind === "video" ? "video/webm" : "audio/webm") });
       const url = URL.createObjectURL(blob);
-      setMediaUrl(url);
+      setPreviewUrl(url);
       setMime(blob.type);
+      setPendingBlob(blob);
+      setPendingDataUrl(undefined);
       setRecState("stopped");
     };
 
@@ -85,24 +92,44 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
   }
 
   function reset() {
-    setTitle(""); setText(""); setMediaUrl(undefined); setMime(undefined); setRecState("idle");
+    setTitle(""); setText(""); setMime(undefined); setRecState("idle");
     setCategory("inbox");
+    setCategoryTouched(false);
     setNewCategoryLabel("");
     setFileName("");
+    setPendingBlob(undefined);
+    setPendingDataUrl(undefined);
+    if (previewUrl && previewUrl.startsWith("blob:")) {
+      try { URL.revokeObjectURL(previewUrl); } catch {}
+    }
+    setPreviewUrl(undefined);
     stop(true);
   }
 
-  function save(approvedCategory?: string) {
+  async function save(approvedCategory?: string) {
     const t = title.trim() || "Untitled";
     const s = suggestCategories(t, text || undefined, kind, props.data.categories, props.data.learning);
+    const id = rid("lib");
+
+    let persistedUrl: string | undefined = undefined;
+    if (pendingDataUrl) {
+      persistedUrl = pendingDataUrl;
+    } else if (pendingBlob) {
+      await putBlob(id, pendingBlob);
+      persistedUrl = `idb:${id}`;
+    } else if (previewUrl && !previewUrl.startsWith("blob:")) {
+      // data: urls (small uploads) are safe to persist
+      persistedUrl = previewUrl;
+    }
 
     const item = {
-      id: rid("lib"),
+      id,
       createdAt: Date.now(),
       kind,
       title: t,
       text: text.trim() || undefined,
-      mediaUrl,
+      fileName: fileName || undefined,
+      mediaUrl: persistedUrl,
       mime,
       suggested: s,
       approvedCategory,
@@ -145,6 +172,7 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
     };
     props.setData(next);
     setCategory(key);
+    setCategoryTouched(true);
     setNewCategoryLabel("");
   }
 
@@ -156,17 +184,23 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
     setMime(file.type || "application/octet-stream");
 
     // Read as data URL for persistence in localStorage (simple prototype).
-    // Guardrail: if file is huge, store a temporary object URL instead.
+    // Guardrail: if file is huge, store the Blob in IndexedDB (persisted).
     const maxBytes = 2_000_000; // ~2MB
     if (file.size > maxBytes) {
       const url = URL.createObjectURL(file);
-      setMediaUrl(url);
+      setPreviewUrl(url);
+      setPendingBlob(file);
+      setPendingDataUrl(undefined);
       return;
     }
     const reader = new FileReader();
     reader.onload = () => {
       const url = typeof reader.result === "string" ? reader.result : "";
-      if (url) setMediaUrl(url);
+      if (url) {
+        setPreviewUrl(url);
+        setPendingDataUrl(url);
+        setPendingBlob(undefined);
+      }
     };
     reader.readAsDataURL(file);
   }
@@ -204,14 +238,14 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
             {fileName && <Pill>{fileName}</Pill>}
           </div>
 
-          {mediaUrl && (mime || "").startsWith("image/") && (
+          {previewUrl && (mime || "").startsWith("image/") && (
             <div style={{ marginTop: 10 }}>
-              <img src={mediaUrl} alt="Uploaded preview" style={{ width: "100%", maxHeight: 360, objectFit: "contain", borderRadius: 14 }} />
+              <img src={previewUrl} alt="Uploaded preview" style={{ width: "100%", maxHeight: 360, objectFit: "contain", borderRadius: 14 }} />
             </div>
           )}
-          {mediaUrl && !(mime || "").startsWith("image/") && (
+          {previewUrl && !(mime || "").startsWith("image/") && (
             <div style={{ marginTop: 10 }}>
-              <a className="pn-btn" href={mediaUrl} target="_blank" rel="noreferrer">Open uploaded file</a>
+              <a className="pn-btn" href={previewUrl} target="_blank" rel="noreferrer">Open uploaded file</a>
               {mime && <div className="pn-small pn-muted" style={{ marginTop: 8 }}>mime: {mime}</div>}
             </div>
           )}
@@ -236,8 +270,8 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
             <Pill>Status: {recState}</Pill>
           </div>
 
-          {mediaUrl && mode === "voice" && <div style={{ marginTop: 10 }}><audio controls src={mediaUrl} style={{ width:"100%" }} /></div>}
-          {mediaUrl && mode === "video" && <div style={{ marginTop: 10 }}><video controls src={mediaUrl} style={{ width:"100%", borderRadius: 14 }} /></div>}
+          {previewUrl && mode === "voice" && <div style={{ marginTop: 10 }}><audio controls src={previewUrl} style={{ width:"100%" }} /></div>}
+          {previewUrl && mode === "video" && <div style={{ marginTop: 10 }}><video controls src={previewUrl} style={{ width:"100%", borderRadius: 14 }} /></div>}
           {mime && <div className="pn-small pn-muted" style={{ marginTop: 8 }}>mime: {mime}</div>}
         </div>
       )}
@@ -249,16 +283,22 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
         </div>
 
         <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginTop: 10, alignItems:"center" }}>
-          <select className="pn-select" value={category} onChange={(e)=>setCategory(e.target.value)} aria-label="Choose category" title="Choose category">
+          <select
+            className="pn-select"
+            value={category}
+            onChange={(e)=>{ setCategory(e.target.value); setCategoryTouched(true); }}
+            aria-label="Choose category"
+            title="Choose category"
+          >
             {props.data.categories.map((c) => (
               <option key={c.key} value={c.key}>{c.label}</option>
             ))}
           </select>
           <Button
             variant="primary"
-            onClick={() => save(category)}
-            disabled={mode === "file" && !mediaUrl}
-            title={mode === "file" && !mediaUrl ? "Upload a file first" : "Save with selected category"}
+            onClick={() => { void save(category); }}
+            disabled={mode === "file" && !previewUrl}
+            title={mode === "file" && !previewUrl ? "Upload a file first" : "Save with selected category"}
           >
             Save
           </Button>
@@ -282,11 +322,11 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
         <div className="pn-h2" style={{ marginTop: 12 }}>Suggested categories</div>
         <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginTop: 10 }}>
           {suggestions.map(s => (
-            <button key={s.category} className="pn-btn" onClick={() => save(s.category)} type="button" title="Approve and save">
+            <button key={s.category} className="pn-btn" onClick={() => { void save(s.category); }} type="button" title="Approve and save">
               ✅ {s.category} <span className="pn-muted">({Math.round(s.score*100)}%)</span>
             </button>
           ))}
-          <button className="pn-btn" onClick={() => save(undefined)} type="button" title="Save without approval">
+          <button className="pn-btn" onClick={() => { void save(undefined); }} type="button" title="Save without approval">
             Save to Inbox
           </button>
           <Button onClick={reset}>Reset</Button>
