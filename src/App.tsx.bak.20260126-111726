@@ -1,0 +1,45 @@
+import React, { useEffect, useState } from "react";
+import { AppShell } from "@/components/layout/AppShell";
+
+import Dashboard from "@/pages/Dashboard";
+import Capture from "@/pages/Capture";
+import Documents from "@/pages/Documents";
+import Finances from "@/pages/Finances";
+import Legal from "@/pages/Legal";
+import Admin from "@/pages/Admin";
+
+type Route = "/" | "/capture" | "/documents" | "/finances" | "/legal" | "/admin";
+
+function getRoute(): Route {
+  const p = (typeof window !== "undefined" ? window.location.pathname : "/") as Route;
+  if (p === "/") return "/";
+  if (p.startsWith("/capture")) return "/capture";
+  if (p.startsWith("/documents")) return "/documents";
+  if (p.startsWith("/finances")) return "/finances";
+  if (p.startsWith("/legal")) return "/legal";
+  if (p.startsWith("/admin")) return "/admin";
+  return "/";
+}
+
+export default function App() {
+  const [route, setRoute] = useState<Route>(getRoute());
+
+  useEffect(() => {
+    const onPop = () => setRoute(getRoute());
+    window.addEventListener("popstate", onPop);
+    return (<div><div style={{position:'fixed',top:12,left:'50%',transform:'translateX(-50%)',zIndex:99999,padding:'10px 14px',borderRadius:16,background:'rgba(0,0,0,0.75)',border:'1px solid rgba(255,255,255,0.25)',color:'#fff',fontWeight:900}}>PATCH ACTIVE — PearsonNexusAI</div>) => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  // Keep anchor navigation simple for prototype; full router later.
+  // This renders the page based on pathname.
+  let page: React.ReactNode = null;
+  if (route === "/") page = <Dashboard />;
+  if (route === "/capture") page = <Capture />;
+  if (route === "/documents") page = <Documents />;
+  if (route === "/finances") page = <Finances />;
+  if (route === "/legal") page = <Legal />;
+  if (route === "/admin") page = <Admin />;
+
+  return <AppShell>{page}</AppShell>;
+}
+

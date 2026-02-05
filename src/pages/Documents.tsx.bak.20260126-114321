@@ -1,0 +1,31 @@
+import React from "react";
+
+export default function Documents() {
+  const items = [
+    { title: "Receipts", note: "Auto-sorted from uploads" },
+    { title: "Bills", note: "Quick links + due dates later" },
+    { title: "Legal Evidence", note: "Photos, messages, recordings" },
+    { title: "Notes", note: "Voice → text summaries later" },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="glass rounded-3xl p-7">
+        <div className="text-3xl font-black">Documents</div>
+        <div className="text-white/60 mt-2">
+          Tiles first. Lists later. This stays friendly for non-technical users.
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {items.map((x) => (
+          <div key={x.title} className="glass rounded-3xl p-7 hover:bg-white/7 transition">
+            <div className="text-xl font-extrabold">{x.title}</div>
+            <div className="text-sm text-white/60 mt-1">{x.note}</div>
+            <div className="mt-4 text-sm font-bold text-[#6AA8FF]">Open →</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

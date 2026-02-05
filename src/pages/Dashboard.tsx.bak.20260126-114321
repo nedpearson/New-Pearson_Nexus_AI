@@ -1,0 +1,39 @@
+import React from "react";
+
+function Tile({ title, subtitle }: { title: string; subtitle: string }) {
+  return (
+    <div className="glass rounded-3xl p-6 relative overflow-hidden">
+      <div className="absolute -right-12 -top-12 h-44 w-44 rounded-full orb-blue opacity-70" />
+      <div className="relative">
+        <div className="text-xl font-extrabold">{title}</div>
+        <div className="text-sm text-white/60 mt-1">{subtitle}</div>
+      </div>
+    </div>
+  );
+}
+
+export default function Dashboard() {
+  return (
+    <div className="space-y-6">
+      <div className="glass rounded-3xl p-7">
+        <div className="text-sm text-white/65 font-semibold">PearsonNexusAI</div>
+        <div className="text-3xl font-black mt-1">Dashboard</div>
+        <div className="text-white/60 mt-2">
+          Quick tiles for everyday actions. Built to feel simple and fun, not technical.
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <Tile title="Scan & Upload" subtitle="Capture a document, receipt, or screenshot" />
+        <Tile title="Voice Note" subtitle="Talk it out; organize it later" />
+        <Tile title="Finances" subtitle="Bills, expenses, and quick links" />
+        <Tile title="Legal" subtitle="Case notes, custody, and evidence sets" />
+      </div>
+
+      <div className="glass rounded-3xl p-8 text-center text-white/60">
+        <div className="text-white/80 font-bold">Recent Activity</div>
+        <div className="text-sm mt-1">Nothing yet. Start with Scan, Upload, or Voice Note.</div>
+      </div>
+    </div>
+  );
+}

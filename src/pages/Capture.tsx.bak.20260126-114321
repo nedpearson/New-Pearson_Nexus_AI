@@ -1,0 +1,51 @@
+import React, { useRef, useState } from "react";
+
+export default function Capture() {
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const [last, setLast] = useState<string>("No captures yet");
+
+  return (
+    <div className="space-y-6">
+      <div className="glass rounded-3xl p-7">
+        <div className="text-3xl font-black">Capture</div>
+        <div className="text-white/60 mt-2">
+          Take a photo, record a video, upload a file, or add a voice note. Keep it easy.
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <button
+          className="glass rounded-3xl p-8 text-left hover:bg-white/7 transition"
+          onClick={() => fileRef.current?.click()}
+        >
+          <div className="text-xl font-extrabold">Upload (Photo / Video / File)</div>
+          <div className="text-white/60 mt-1">Choose from device</div>
+        </button>
+
+        <button
+          className="glass rounded-3xl p-8 text-left hover:bg-white/7 transition"
+          onClick={() => setLast("Voice note capture stub (UI-only for now)")}
+        >
+          <div className="text-xl font-extrabold">Voice Note</div>
+          <div className="text-white/60 mt-1">Tap to record (prototype stub)</div>
+        </button>
+      </div>
+
+      <input
+        ref={fileRef}
+        type="file"
+        className="hidden"
+        accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) setLast(`Selected: ${f.name}`);
+        }}
+      />
+
+      <div className="glass rounded-3xl p-7">
+        <div className="text-white/80 font-bold">Last Action</div>
+        <div className="text-sm text-white/60 mt-1">{last}</div>
+      </div>
+    </div>
+  );
+}
