@@ -12,6 +12,7 @@ export const PERSONAL_NAV_DEFAULTS: NavDefaults = {
   items: [
     // ---- Home ----
     { id: "home.dashboard", label: "Home", path: "dashboard", icon: "🏠", header: "home" },
+    { id: "home.calendar", label: "Calendar", path: "calendar", icon: "📅", header: "home" },
     { id: "home.reports", label: "Reports", path: "reports", icon: "📊", header: "home" },
     // Optional (enable in Customize)
     { id: "home.guides", label: "Guides", path: "guides", icon: "🧭", header: "home", defaultHidden: true },
@@ -35,6 +36,7 @@ export const BUSINESS_NAV_DEFAULTS: NavDefaults = {
   items: [
     // ---- Home ----
     { id: "home.dashboard", label: "Home", path: "dashboard", icon: "🏠", header: "home" },
+    { id: "home.calendar", label: "Calendar", path: "calendar", icon: "📅", header: "home" },
     // Optional (enable in Customize)
     { id: "home.clients", label: "Clients", path: "clients", icon: "👥", header: "home", defaultHidden: true },
     { id: "home.projects", label: "Projects", path: "projects", icon: "📁", header: "home", minTier: "Plus", defaultHidden: true },

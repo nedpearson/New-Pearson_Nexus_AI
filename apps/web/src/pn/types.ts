@@ -3,6 +3,7 @@ export type Tier = "Free" | "Plus" | "Pro";
 // Shared keys (Personal + Business). Business adds extra tabs but we keep the same simple shell UI.
 export type ModuleKey =
   | "dashboard"
+  | "calendar"
   | "documents"
   | "finances"
   | "legal"

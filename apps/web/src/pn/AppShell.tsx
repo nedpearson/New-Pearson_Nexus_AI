@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { DEFAULT_DESKTOP_ORDER, DEFAULT_MOBILE_ORDER, isTierAllowed } from "./registry";
-import type { ModuleKey, ModuleItem, Tier } from "./types";
+import { DEFAULT_DESKTOP_ORDER, DEFAULT_MOBILE_ORDER } from "./registry";
+import type { ModuleKey, ModuleItem } from "./types";
 import { SAMPLE_DATA } from "./data/sample";
 import { loadData, loadLayout, saveData, saveLayout } from "./utils/store";
 import type { LayoutState } from "./utils/store";
@@ -21,6 +21,7 @@ import { FinancesModule } from "./modules/FinancesModule";
 import { LegalModule } from "./modules/LegalModule";
 import { ReportsModule } from "./modules/ReportsModule";
 import { AdminModule } from "./modules/AdminModule";
+import { CalendarModule } from "./modules/CalendarModule";
 
 function dotClass(accent: ModuleItem["accent"]) {
   return accent === "cyan" ? "pn-dot pn-cyan"
@@ -87,6 +88,15 @@ export function AppShell() {
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [sidebarPrefs, setSidebarPrefs] = useState<SidebarPreferencesV1>(() => defaultPrefsForDefaults(navDefaults));
+  const [viewMode, setViewMode] = useState<"mobile" | "desktop">(() => {
+    if (typeof window === "undefined") return "mobile";
+    return (localStorage.getItem("pnx.ui.viewMode") === "desktop") ? "desktop" : "mobile";
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("pnx.ui.viewMode", viewMode);
+  }, [viewMode]);
 
   useEffect(() => {
     const loadedLayout = loadLayout(fallbackLayout, scope);
@@ -236,6 +246,7 @@ export function AppShell() {
       case "dashboard": return mode === "business"
         ? { t: "Business", s: "Clients, invoices, projects — simplified." }
         : { t: "Home", s: "Tiles, shortcuts, and what’s next." };
+      case "calendar":  return { t: "Calendar", s: "Timeline and due dates (prototype placeholder)." };
       case "documents": return { t: "Capture", s: "Voice/video/notes — approve the category. It learns." };
       case "finances":  return { t: "Money", s: "Bills + expenses + quick pay links in one place." };
       case "legal":     return { t: "Legal", s: "Personal, divorce, custody — organized and easy." };
@@ -249,6 +260,7 @@ export function AppShell() {
     <>
       {mode === "personal" && layout.active === "dashboard" && <DashboardModule data={data} go={setActive} userTier={layout.userTier} />}
       {mode === "business" && layout.active === "dashboard" && <BusinessDashboardModule go={setActive} />}
+      {layout.active === "calendar"  && <CalendarModule data={data} go={setActive} />}
       {layout.active === "documents" && <DocumentsModule data={data} setData={setData} />}
       {layout.active === "finances"  && <FinancesModule data={data} />}
       {layout.active === "legal"     && <LegalModule data={data} setData={setData} />}
@@ -262,8 +274,26 @@ export function AppShell() {
     </>
   );
 
+  const DESKTOP_ORDER: { key: ModuleKey; label: string; icon: string }[] = useMemo(() => ([
+    { key: "dashboard", label: "Home", icon: "🏠" },
+    { key: "calendar", label: "Calendar", icon: "📅" },
+    { key: "finances", label: "Money", icon: "💳" },
+    { key: "legal", label: "Legal", icon: "⚖️" },
+    { key: "reports", label: "Reports", icon: "📊" },
+    { key: "documents", label: "Capture / Documents", icon: "📸" },
+    { key: "admin", label: "Admin", icon: "🛠️" },
+  ]), []);
+
+  const canonicalDesktopItems = useMemo(() => {
+    // Enforce: show ONLY the canonical 7 items in this exact order (both Personal + Business).
+    return DESKTOP_ORDER.filter((it) => {
+      if (it.key === "admin") return isAdmin;
+      return true;
+    });
+  }, [DESKTOP_ORDER, isAdmin]);
+
   return (
-    <div className="pn-grid">
+    <div className={["pn-grid", viewMode === "desktop" ? "pn-forceDesktop" : ""].join(" ")}>
       <div className="pn-wrap">
         <div className="pn-layout">
           {/* Sidebar (desktop) */}
@@ -278,57 +308,41 @@ export function AppShell() {
 
             <div className="pn-card pn-p" style={{ marginTop: 14 }}>
               <div className="pn-row" style={{ marginBottom: 10 }}>
-                <div style={{ fontWeight: 900 }}>Sidebar</div>
+                <div style={{ fontWeight: 900 }}>Navigation</div>
                 <Button onClick={() => setCustomizeOpen(true)} variant="ghost" title="Customize sidebar (show/hide, reorder, pin)">
                   Customize
                 </Button>
               </div>
 
-              {effectiveNav.headers.map((h) => (
-                <div key={h.key} style={{ marginTop: 12 }}>
-                  <div className="pn-small pn-muted" style={{ fontWeight: 850, letterSpacing: 0.2 }}>
-                    {h.label}
-                  </div>
-                  <div className="pn-col" style={{ marginTop: 8 }}>
-                    {h.items.map((it) => {
-                      const allowedTier = isTierAllowed(layout.userTier as Tier, it.minTier || "Free");
-                      const allowedAdmin = !it.requiresAdmin || isAdmin;
-                      const allowed = allowedTier && allowedAdmin;
-                      const active = layout.active === it.path;
-                      const isPinned = (sidebarPrefs.pinnedItemIds || []).includes(it.id);
-                      const accent: ModuleItem["accent"] =
-                        it.header === "money" ? "amber"
-                          : it.header === "legal" ? "rose"
-                            : it.header === "admin" ? "purple"
-                              : it.header === "capture_docs" ? "blue"
-                                : "cyan";
-                      return (
-                        <button
-                          key={it.id}
-                          className={["pn-navBtn", active ? "pn-navBtnActive" : ""].join(" ")}
-                          onClick={() => allowed && setActive(it.path)}
-                          disabled={!allowed}
-                          type="button"
-                          title={!allowed ? (it.minTier ? `Unlock in ${it.minTier}` : "Locked") : it.label}
-                          style={{ opacity: allowed ? 1 : .45, cursor: allowed ? "pointer" : "not-allowed" }}
-                        >
-                          <div className="pn-row">
-                            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                              <div className={dotClass(accent)} />
-                              <div style={{ fontSize: 18 }}>{it.icon || "•"}</div>
-                              <div style={{ fontWeight: 900 }}>{it.label}</div>
-                            </div>
-                            <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-                              {isPinned && <span className="pn-badge">★</span>}
-                              {!allowed && it.minTier && <span className="pn-badge">🔒 {it.minTier}</span>}
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
+              <div className="pn-col">
+                {canonicalDesktopItems.map((it) => {
+                  const active = layout.active === it.key;
+                  const accent: ModuleItem["accent"] =
+                    it.key === "finances" ? "amber"
+                      : it.key === "legal" ? "rose"
+                        : it.key === "admin" ? "purple"
+                          : it.key === "documents" ? "blue"
+                            : "cyan";
+                  return (
+                    <button
+                      key={it.key}
+                      className={["pn-navBtn", active ? "pn-navBtnActive" : ""].join(" ")}
+                      onClick={() => setActive(it.key)}
+                      type="button"
+                      aria-label={it.label}
+                      title={it.label}
+                    >
+                      <div className="pn-row">
+                        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                          <div className={dotClass(accent)} />
+                          <div style={{ fontSize: 18 }}>{it.icon}</div>
+                          <div style={{ fontWeight: 900 }}>{it.label}</div>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
@@ -341,6 +355,15 @@ export function AppShell() {
                   <div className="pn-small pn-muted">{header.s}</div>
                 </div>
                 <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
+                  {viewMode === "desktop" && (
+                    <Button
+                      variant="ghost"
+                      onClick={() => setViewMode("mobile")}
+                      title="Return to mobile view"
+                    >
+                      Mobile view
+                    </Button>
+                  )}
                   <div
                     style={{
                       display: "flex",
@@ -483,23 +506,25 @@ export function AppShell() {
       {/* Mobile bottom nav */}
       <div className="pn-mobileNav pn-card">
         <div className="pn-mobileGrid">
-          {flatNavItems.filter((it) => it.header !== "admin").slice(0, 5).map((it) => {
-            const allowedTier = isTierAllowed(layout.userTier as Tier, it.minTier || "Free");
-            const allowedAdmin = !it.requiresAdmin || isAdmin;
-            const allowed = allowedTier && allowedAdmin;
-            const active = layout.active === it.path;
+          {([
+            { key: "finances" as const, label: "Money", icon: "💳", onClick: () => setActive("finances") },
+            { key: "calendar" as const, label: "Calendar", icon: "📅", onClick: () => setActive("calendar") },
+            { key: "documents" as const, label: "Documents", icon: "📄", onClick: () => setActive("documents") },
+            { key: "desktop" as const, label: "Desktop", icon: "🖥️", onClick: () => setViewMode((v) => v === "desktop" ? "mobile" : "desktop") },
+          ]).map((t) => {
+            const active = (t.key === "desktop") ? (viewMode === "desktop") : (layout.active === t.key);
             return (
               <button
-                key={it.id}
+                key={t.key}
                 className={["pn-mobileTab", active ? "pn-mobileTabActive" : ""].join(" ")}
-                onClick={() => allowed && setActive(it.path)}
-                disabled={!allowed}
+                onClick={t.onClick}
                 type="button"
-                title={!allowed ? (it.minTier ? `Unlock in ${it.minTier}` : "Locked") : it.label}
-                style={{ opacity: allowed ? 1 : .45, cursor: allowed ? "pointer" : "not-allowed" }}
+                aria-label={t.label}
+                title={t.label}
+                style={{ minHeight: 54 }}
               >
-                <div style={{ fontSize: 18 }}>{it.icon || "•"}</div>
-                <div className="pn-small" style={{ marginTop: 4, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{it.label}</div>
+                <div style={{ fontSize: 18 }}>{t.icon}</div>
+                <div className="pn-small" style={{ marginTop: 4, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{t.label}</div>
               </button>
             );
           })}
