@@ -58,7 +58,6 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
   useEffect(() => {
     if (categoryTouched) return;
     if (!category || category === "inbox") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (topSuggestion) setCategory(topSuggestion);
     }
   }, [topSuggestion, categoryTouched, category]);
@@ -251,6 +250,33 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
     });
 
     reset();
+  }
+
+  async function saveWithProgress(approvedCategory?: string) {
+    // Only show progress UI for file uploads; notes/voice/video save instantly.
+    if (mode !== "file") {
+      await save(approvedCategory);
+      return;
+    }
+    setUploadOpen(true);
+    setUploadBusy(true);
+    setUploadDone(false);
+    setUploadErrors([]);
+    setUploadTotal(1);
+    setUploadIdx(0);
+    setUploadStatus("Saving file…");
+    try {
+      setUploadIdx(1);
+      await save(approvedCategory);
+      setUploadStatus("Done");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setUploadErrors([msg]);
+      setUploadStatus("Done (with warnings)");
+    } finally {
+      setUploadBusy(false);
+      setUploadDone(true);
+    }
   }
 
   function normalizeKey(label: string) {
@@ -447,7 +473,7 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
           </select>
           <Button
             variant="primary"
-            onClick={() => { void save(category); }}
+            onClick={() => { void saveWithProgress(category); }}
             disabled={mode === "file" && !previewUrl}
             title={mode === "file" && !previewUrl ? "Choose a file first" : "Save with selected category"}
           >
@@ -473,11 +499,11 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
         <div className="pn-h2" style={{ marginTop: 12 }}>Suggested categories</div>
         <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginTop: 10 }}>
           {suggestions.map(s => (
-            <button key={s.category} className="pn-btn" onClick={() => { void save(s.category); }} type="button" title="Approve and save">
+            <button key={s.category} className="pn-btn" onClick={() => { void saveWithProgress(s.category); }} type="button" title="Approve and save">
               ✅ {s.category} <span className="pn-muted">({Math.round(s.score*100)}%)</span>
             </button>
           ))}
-          <button className="pn-btn" onClick={() => { void save(undefined); }} type="button" title="Save without approval">
+          <button className="pn-btn" onClick={() => { void saveWithProgress(undefined); }} type="button" title="Save without approval">
             Save to Inbox
           </button>
           <Button onClick={reset}>Reset</Button>
@@ -502,7 +528,7 @@ export function CapturePanel(props: { data: AppData; setData: (n: AppData) => vo
           <div className="pn-card pn-p" style={{ maxWidth: 720, width: "100%" }} onClick={(e) => e.stopPropagation()}>
             <div className="pn-row" style={{ marginBottom: 10 }}>
               <div>
-                <div style={{ fontWeight: 900, fontSize: 16 }}>Uploading…</div>
+                <div style={{ fontWeight: 900, fontSize: 16 }}>{uploadTotal > 1 ? "Uploading…" : "Saving…"}</div>
                 <div className="pn-small pn-muted">{uploadStatus}</div>
               </div>
               <Button
