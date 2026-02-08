@@ -1,0 +1,31 @@
+{
+  "service": {
+    "name": "PearsonNexusAI Prototype (Vite)",
+    "description": "React + TypeScript + Vite prototype for PearsonNexusAI UI modules.",
+    "category": "apps",
+    "tags": ["react", "vite", "prototype"],
+    "tech_stack": ["nodejs", "react", "typescript", "vite"],
+    "dependencies": [],
+    "config_paths": [],
+    "port": 5199,
+    "local_url": "http://127.0.0.1:5199",
+    "healthcheck_url": "http://127.0.0.1:5199",
+    "working_directory": "C:/Users/nedpe/Documents/PearsonNexusAI/prototype",
+    "start_command": "npm run dev -- --host {HOST} --port {PORT} --strictPort",
+    "stop_command": "",
+    "restart_command": "",
+    "env_overrides": {},
+    "database_id": null,
+    "database_connection_string": null,
+    "database_schema_overview": null
+  },
+  "database": null,
+  "keys": [],
+  "requested_port": 5199,
+  "auto_assign_port": false,
+  "auto_create_db": false,
+  "meta": {
+    "source": "program-repo",
+    "repo": "https://github.com/nedpearson/New-Pearson_Nexus_AI.git"
+  }
+}
