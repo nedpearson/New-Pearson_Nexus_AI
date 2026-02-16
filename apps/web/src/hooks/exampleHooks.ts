@@ -5,12 +5,12 @@
  * for initialization tasks.
  */
 
-import { registerSessionStartHook } from "@/hooks";
+import { hookManager } from "./hookManager";
 
 /**
  * Example: Log application startup
  */
-registerSessionStartHook({
+hookManager.registerSessionStart({
   id: "example-startup-logger",
   name: "Startup Logger",
   priority: 10,
@@ -23,7 +23,7 @@ registerSessionStartHook({
 /**
  * Example: Validate browser capabilities
  */
-registerSessionStartHook({
+hookManager.registerSessionStart({
   id: "example-browser-check",
   name: "Browser Capabilities Check",
   priority: 20,
@@ -45,7 +45,7 @@ registerSessionStartHook({
 /**
  * Example: Performance monitoring
  */
-registerSessionStartHook({
+hookManager.registerSessionStart({
   id: "example-performance-monitor",
   name: "Performance Monitor",
   priority: 30,
