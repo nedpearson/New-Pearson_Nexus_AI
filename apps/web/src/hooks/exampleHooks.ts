@@ -5,7 +5,7 @@
  * for initialization tasks.
  */
 
-import { registerSessionStartHook } from "./index";
+import { registerSessionStartHook } from "@/hooks";
 
 /**
  * Example: Log application startup

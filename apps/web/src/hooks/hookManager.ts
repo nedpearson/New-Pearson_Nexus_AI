@@ -52,7 +52,7 @@ class HookManager {
 
     const context: HookContext = {
       timestamp: Date.now(),
-      environment: import.meta.env.MODE === "production" ? "production" : "development",
+      environment: import.meta.env.MODE === "test" ? "test" : import.meta.env.MODE === "production" ? "production" : "development",
     };
 
     const sortedHooks = this.getSortedHooks();
